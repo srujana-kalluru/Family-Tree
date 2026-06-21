@@ -2,7 +2,7 @@ import { Lang, PositionedNode, Wire, BoxRect, TreeView, NodeClass } from './mode
 import { TreeGraph } from './tree-graph';
 import { dispName, initialsOf } from './translit';
 
-export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 94, FAM_GAP = 66, COL = 160, ROW = 220, MARGIN = 110;
+export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 94, FAM_GAP = 66, COL = 160, ROW = 220, MARGIN = 110, IN_LAW_GAP = 110;
 
 interface Anchor { cx: number; top: number; bottom: number; cy: number; left: number; right: number; }
 
@@ -58,7 +58,17 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
       used.add(id);
       let m: number[];
       if (!sps.length) m = [id];
-      else if (sps.length === 1) { used.add(sps[0].id); m = dx[id] <= dx[sps[0].id] ? [id, sps[0].id] : [sps[0].id, id]; }
+      else if (sps.length === 1) {
+        const sp = sps[0].id; used.add(sp);
+        const idFam = famSet.has(id), spFam = famSet.has(sp);
+        if (idFam !== spFam) {   // a nuclear child paired with their in-law: keep the child toward its parents, push the in-law to the outer edge (out of the nuclear box)
+          const kid = idFam ? id : sp, inlaw = idFam ? sp : id;
+          const c = pax[kid] != null ? pax[kid]! : dx[kid];
+          m = c >= (dx[id] + dx[sp]) / 2 ? [inlaw, kid] : [kid, inlaw];
+        } else {
+          m = dx[id] <= dx[sp] ? [id, sp] : [sp, id];
+        }
+      }
       else {
         sps.forEach(s => used.add(s.id));
         const sorted = sps.map(s => s.id).sort((a, b) => dx[a] - dx[b]);
@@ -73,10 +83,15 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
     units.forEach(u => {
       const uFam = u.m.some(id => famSet.has(id));
       const gap = (prevFam !== null && uFam !== prevFam) ? COL + FAM_GAP : COL;
-      const w = (u.m.length - 1) * COL;
+      const off: number[] = [0];
+      for (let i = 1; i < u.m.length; i++) {
+        const wide = famSet.has(u.m[i - 1]) !== famSet.has(u.m[i]);   // nuclear member meets an in-law: widen so the in-law clears the box
+        off.push(off[i - 1] + (wide ? COL + IN_LAW_GAP : COL));
+      }
+      const w = off[off.length - 1];
       let start = u.d - w / 2;
       if (start < cursor + gap) start = cursor + gap;
-      u.m.forEach((id, i) => placed.push([id, start + i * COL]));
+      u.m.forEach((id, i) => placed.push([id, start + off[i]]));
       cursor = start + w; prevFam = uFam;
     });
     const meanD = units.reduce((a, u) => a + u.d * u.m.length, 0) / row.length;
