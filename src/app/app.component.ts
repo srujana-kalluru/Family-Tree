@@ -53,12 +53,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   editId = computed(() => { const m = this.formMode(); return m && m.type === 'edit' ? m.id : -1; });
   addRelation = computed<Relation>(() => { const m = this.formMode(); return m && m.type === 'add' ? m.relation : 'child'; });
   addAnchor = computed(() => { const m = this.formMode(); return m && m.type === 'add' ? m.anchor : -1; });
-  povList = computed(() => {
-    const q = this.povQuery().toLowerCase();
-    return this.svc.data().people
-      .filter(p => `${p.first_name} ${p.last_name ?? ''}`.toLowerCase().includes(q))
-      .sort((a, b) => dispName(a.first_name, this.lang()).localeCompare(dispName(b.first_name, this.lang())));
-  });
+  povList = computed(() => this.matchSort(this.svc.data().people, this.povQuery().toLowerCase()));
   // People eligible to link into the current add slot. Spouse: anyone but self/existing spouses (loops ok).
   // Child: exclude self + the anchor's ancestors, so a parent-child link can never form a cycle.
   linkCandidates = computed(() => {
@@ -66,16 +61,19 @@ export class AppComponent implements OnInit, AfterViewInit {
     const g = this.graph(); const exclude = new Set<number>([m.anchor]);
     if (m.relation === 'spouse') g.spouses(m.anchor).forEach(s => exclude.add(s.id));
     else { g.ancestors(m.anchor).forEach(a => exclude.add(a)); g.children(m.anchor).forEach(c => exclude.add(c.id)); }
-    const q = this.linkQuery().toLowerCase();
-    return this.svc.data().people
-      .filter(p => !exclude.has(p.id) && `${p.first_name} ${p.last_name ?? ''}`.toLowerCase().includes(q))
-      .sort((a, b) => dispName(a.first_name, this.lang()).localeCompare(dispName(b.first_name, this.lang())));
+    return this.matchSort(this.svc.data().people.filter(p => !exclude.has(p.id)), this.linkQuery().toLowerCase());
   });
   // The anchor's spouses, offered as the optional second parent when adding a child.
   anchorSpouses = computed(() => {
     const m = this.formMode();
     return m && m.type === 'add' && m.relation === 'child' ? this.graph().spouses(m.anchor) : [];
   });
+  /** Case-insensitive name search + first-name sort, shared by the viewpoint and link pickers. */
+  private matchSort(people: Person[], q: string): Person[] {
+    return people
+      .filter(p => `${p.first_name} ${p.last_name ?? ''}`.toLowerCase().includes(q))
+      .sort((a, b) => dispName(a.first_name, this.lang()).localeCompare(dispName(b.first_name, this.lang())));
+  }
 
   private dragging = false; private sx = 0; private sy = 0; private opx = 0; private opy = 0;
   private clickTimer: ReturnType<typeof setTimeout> | null = null;

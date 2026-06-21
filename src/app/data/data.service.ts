@@ -88,12 +88,17 @@ export class DataService {
   }
 
   /** Add a standalone person (the first person in an empty tree). Returns the new id, or -1 on failure. */
+  /** Insert a person row and return its new id (throws on error). */
+  private async insertPerson(first: string, last: string | null): Promise<number> {
+    const ins = await this.client!.from('person').insert({ first_name: first, last_name: last }).select('id').single();
+    if (ins.error) throw ins.error;
+    return (ins.data as { id: number }).id;
+  }
+
   async addPerson(first: string, last: string | null): Promise<number> {
     if (!this.client) return -1;
     try {
-      const ins = await this.client.from('person').insert({ first_name: first, last_name: last }).select('id').single();
-      if (ins.error) throw ins.error;
-      const id = (ins.data as { id: number }).id;
+      const id = await this.insertPerson(first, last);
       this.mutate(d => d.people.push(this.stamp({ id, first_name: first, last_name: last })));
       return id;
     } catch (e) { this.fail(e); await this.load(); return -1; }
@@ -102,9 +107,7 @@ export class DataService {
   async addRelative(relation: Relation, anchorId: number, first: string, last: string | null, coParentId: number | null = null): Promise<void> {
     if (!this.client) return;
     try {
-      const ins = await this.client.from('person').insert({ first_name: first, last_name: last }).select('id').single();
-      if (ins.error) throw ins.error;
-      const id = (ins.data as { id: number }).id;
+      const id = await this.insertPerson(first, last);
       let linkErr = null;
       if (relation === 'spouse') linkErr = (await this.client.from('marriage').insert({ partner1_id: anchorId, partner2_id: id })).error;
       if (relation === 'child') {

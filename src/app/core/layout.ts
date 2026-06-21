@@ -39,54 +39,56 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   const x: Record<number, number> = {};
   rows.forEach(row => row.forEach((id, i) => x[id] = i * COL));
 
+  const placeRow = (ri: number) => {
+    const row = rows[ri]; if (!row.length) return;
+    const dx: Record<number, number> = {}; const pax: Record<number, number | null> = {};
+    row.forEach(id => {
+      const n: number[] = [];
+      P(id).forEach(p => { if (x[p.id] != null) n.push(x[p.id]); });
+      C(id).forEach(c => { if (x[c.id] != null) n.push(x[c.id]); });
+      S(id).forEach(s => { if (x[s.id] != null && lvl[s.id] === ri) n.push(x[s.id]); });
+      dx[id] = n.length ? n.reduce((a, b) => a + b, 0) / n.length : x[id];
+      const pv = P(id).map(p => x[p.id]).filter(v => v != null);
+      pax[id] = pv.length ? pv.reduce((a, b) => a + b, 0) / pv.length : null;
+    });
+    const used = new Set<number>(); const units: { m: number[]; d: number; gk: number }[] = [];
+    row.forEach(id => {
+      if (used.has(id)) return;
+      const sps = S(id).filter(s => lvl[s.id] === ri && !used.has(s.id));
+      used.add(id);
+      let m: number[];
+      if (!sps.length) m = [id];
+      else if (sps.length === 1) { used.add(sps[0].id); m = dx[id] <= dx[sps[0].id] ? [id, sps[0].id] : [sps[0].id, id]; }
+      else {
+        sps.forEach(s => used.add(s.id));
+        const sorted = sps.map(s => s.id).sort((a, b) => dx[a] - dx[b]);
+        const mid = Math.ceil(sorted.length / 2);
+        m = [...sorted.slice(0, mid), id, ...sorted.slice(mid)];   // hub centered among its spouses
+      }
+      const dv = m.map(x => dx[x]); const gv = m.map(x => pax[x] != null ? pax[x]! : dx[x]);
+      units.push({ m, d: dv.reduce((a, b) => a + b, 0) / dv.length, gk: gv.reduce((a, b) => a + b, 0) / gv.length });
+    });
+    units.sort((a, b) => (a.gk - b.gk) || (a.d - b.d));
+    let cursor = -Infinity; let prevFam: boolean | null = null; const placed: [number, number][] = [];
+    units.forEach(u => {
+      const uFam = u.m.some(id => famSet.has(id));
+      const gap = (prevFam !== null && uFam !== prevFam) ? COL + FAM_GAP : COL;
+      const w = (u.m.length - 1) * COL;
+      let start = u.d - w / 2;
+      if (start < cursor + gap) start = cursor + gap;
+      u.m.forEach((id, i) => placed.push([id, start + i * COL]));
+      cursor = start + w; prevFam = uFam;
+    });
+    const meanD = units.reduce((a, u) => a + u.d * u.m.length, 0) / row.length;
+    const meanP = placed.reduce((a, p) => a + p[1], 0) / placed.length;
+    const shift = meanD - meanP;
+    placed.forEach(([id, px]) => x[id] = px + shift);
+  };
   for (let sweep = 0; sweep < 18; sweep++) {
     const idxs = [...rows.keys()]; if (sweep % 2) idxs.reverse();
-    for (const ri of idxs) {
-      const row = rows[ri]; if (!row.length) continue;
-      const dx: Record<number, number> = {}; const pax: Record<number, number | null> = {};
-      row.forEach(id => {
-        const n: number[] = [];
-        P(id).forEach(p => { if (x[p.id] != null) n.push(x[p.id]); });
-        C(id).forEach(c => { if (x[c.id] != null) n.push(x[c.id]); });
-        S(id).forEach(s => { if (x[s.id] != null && lvl[s.id] === ri) n.push(x[s.id]); });
-        dx[id] = n.length ? n.reduce((a, b) => a + b, 0) / n.length : x[id];
-        const pv = P(id).map(p => x[p.id]).filter(v => v != null);
-        pax[id] = pv.length ? pv.reduce((a, b) => a + b, 0) / pv.length : null;
-      });
-      const used = new Set<number>(); const units: { m: number[]; d: number; gk: number }[] = [];
-      row.forEach(id => {
-        if (used.has(id)) return;
-        const sps = S(id).filter(s => lvl[s.id] === ri && !used.has(s.id));
-        used.add(id);
-        let m: number[];
-        if (!sps.length) m = [id];
-        else if (sps.length === 1) { used.add(sps[0].id); m = dx[id] <= dx[sps[0].id] ? [id, sps[0].id] : [sps[0].id, id]; }
-        else {
-          sps.forEach(s => used.add(s.id));
-          const sorted = sps.map(s => s.id).sort((a, b) => dx[a] - dx[b]);
-          const mid = Math.ceil(sorted.length / 2);
-          m = [...sorted.slice(0, mid), id, ...sorted.slice(mid)];   // hub centered among its spouses
-        }
-        const dv = m.map(x => dx[x]); const gv = m.map(x => pax[x] != null ? pax[x]! : dx[x]);
-        units.push({ m, d: dv.reduce((a, b) => a + b, 0) / dv.length, gk: gv.reduce((a, b) => a + b, 0) / gv.length });
-      });
-      units.sort((a, b) => (a.gk - b.gk) || (a.d - b.d));
-      let cursor = -Infinity; let prevFam: boolean | null = null; const placed: [number, number][] = [];
-      units.forEach(u => {
-        const uFam = u.m.some(id => famSet.has(id));
-        const gap = (prevFam !== null && uFam !== prevFam) ? COL + FAM_GAP : COL;
-        const w = (u.m.length - 1) * COL;
-        let start = u.d - w / 2;
-        if (start < cursor + gap) start = cursor + gap;
-        u.m.forEach((id, i) => placed.push([id, start + i * COL]));
-        cursor = start + w; prevFam = uFam;
-      });
-      const meanD = units.reduce((a, u) => a + u.d * u.m.length, 0) / row.length;
-      const meanP = placed.reduce((a, p) => a + p[1], 0) / placed.length;
-      const shift = meanD - meanP;
-      placed.forEach(([id, px]) => x[id] = px + shift);
-    }
+    for (const ri of idxs) placeRow(ri);
   }
+  for (let ri = 0; ri < rows.length; ri++) placeRow(ri);   // final top-down pass: children settle under their parents' midpoint (straight drops)
 
   let minX = Infinity, maxX = -Infinity;
   vpeople.forEach(p => { if (lvl[p.id] == null) return; minX = Math.min(minX, x[p.id]); maxX = Math.max(maxX, x[p.id]); });
@@ -123,7 +125,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   graph.data.parentChild.forEach(r => { if (pos[r.parent_id] && pos[r.child_id]) (kidPar[r.child_id] = kidPar[r.child_id] || []).push(r.parent_id); });
   const fams: Record<string, { pars: number[]; kids: number[] }> = {};
   Object.entries(kidPar).forEach(([ch, pars]) => { const key = [...pars].sort((a, b) => a - b).join('+'); (fams[key] = fams[key] || { pars, kids: [] }).kids.push(+ch); });
-  interface Fam { pars: number[]; kids: number[]; px: number; py: number; kidTop: number; busY: number; }
+  interface Fam { pars: number[]; kids: number[]; px: number; py: number; kidTop: number; busY: number; dropTop: number; }
   const famArr: Fam[] = [];
   Object.values(fams).forEach(f => {
     const pa = f.pars.map(anchor).filter((a): a is Anchor => !!a);
@@ -132,7 +134,8 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
     const px = pa.reduce((a, c) => a + c.cx, 0) / pa.length;
     const py = Math.max(...pa.map(c => c.bottom));
     const kidTop = Math.min(...ka.map(c => c.top));
-    famArr.push({ pars: f.pars, kids: f.kids, px, py, kidTop, busY: (py + kidTop) / 2 });
+    const dropTop = pa.length >= 2 ? Math.min(...pa.map(c => c.cy)) : py;   // couples drop from the marriage line; a lone parent from its base
+    famArr.push({ pars: f.pars, kids: f.kids, px, py, kidTop, busY: (py + kidTop) / 2, dropTop });
   });
   const bands: Record<string, Fam[]> = {};
   famArr.forEach(f => { const k = Math.round(f.py / 8) + '|' + Math.round(f.kidTop / 8); (bands[k] = bands[k] || []).push(f); });
@@ -146,7 +149,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   });
   famArr.forEach(f => {
     const main = f.pars.includes(pov);
-    wires.push({ x1: f.px, y1: f.py, x2: f.px, y2: f.busY, main });
+    wires.push({ x1: f.px, y1: f.dropTop, x2: f.px, y2: f.busY, main });
     const xs = f.kids.map(id => pos[id].x);
     const minXk = Math.min(f.px, ...xs), maxXk = Math.max(f.px, ...xs);
     wires.push({ x1: minXk, y1: f.busY, x2: maxXk, y2: f.busY, main });

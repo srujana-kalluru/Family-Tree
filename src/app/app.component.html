@@ -120,8 +120,7 @@
       <div class="search"><input type="text" [ngModel]="linkQuery()" (ngModelChange)="linkQuery.set($event)" [placeholder]="t('searchName')" autocomplete="off" /></div>
       <div class="plist">
         <div class="pitem" *ngFor="let p of linkCandidates()" (click)="pickExisting(p.id)">
-          <div class="pav" [style.background]="grad(p.id)">{{ (nameOf(p.id)[0] || '').toUpperCase() }}</div>
-          <div class="pmeta"><div class="pn">{{ nameOf(p.id) }}<span class="pl" *ngIf="lastNameOf(p.id)"> {{ lastNameOf(p.id) }}</span></div></div>
+          <ng-container *ngTemplateOutlet="personRow; context: { $implicit: p }"></ng-container>
         </div>
         <div class="relnote" *ngIf="!linkCandidates().length">{{ t('noMatches') }}</div>
       </div>
@@ -175,12 +174,16 @@
     <div class="search"><input type="text" [ngModel]="povQuery()" (ngModelChange)="povQuery.set($event)" [placeholder]="t('searchName')" /></div>
     <div class="plist">
       <div class="pitem" *ngFor="let p of povList()" (click)="pickPov(p.id)">
-        <div class="pav" [style.background]="grad(p.id)">{{ (nameOf(p.id)[0] || '').toUpperCase() }}</div>
-        <div class="pmeta">
-          <div class="pn">{{ nameOf(p.id) }}<span class="pl" *ngIf="lastNameOf(p.id)"> {{ lastNameOf(p.id) }}</span></div>
-          <div class="cur" *ngIf="p.id===pov()">{{ t('current') }}</div>
-        </div>
+        <ng-container *ngTemplateOutlet="personRow; context: { $implicit: p }"></ng-container>
       </div>
     </div>
   </div>
 </div>
+
+<ng-template #personRow let-p>
+  <div class="pav" [style.background]="grad(p.id)">{{ (nameOf(p.id)[0] || '').toUpperCase() }}</div>
+  <div class="pmeta">
+    <div class="pn">{{ nameOf(p.id) }}<span class="pl" *ngIf="lastNameOf(p.id)"> {{ lastNameOf(p.id) }}</span></div>
+    <div class="cur" *ngIf="p.id===pov()">{{ t('current') }}</div>
+  </div>
+</ng-template>
