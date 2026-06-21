@@ -97,7 +97,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   vpeople.forEach(p => { if (lvl[p.id] == null) return; pos[p.id] = { x: x[p.id] - minX + MARGIN, y: lvl[p.id] * ROW + MARGIN }; });
   const width = (maxX - minX) + MARGIN * 2 + NODE_W, height = maxL * ROW + MARGIN * 2 + 120;
 
-  const avSize = (id: number) => id === pov ? S_POV : (graph.isMain(id, pov) ? S_MAIN : S_EXT);
+  const avSize = (id: number) => id === pov ? S_POV : (famSet.has(id) ? S_MAIN : S_EXT);
   const anchor = (id: number): Anchor | null => {
     const p = pos[id]; if (!p) return null;
     const s = avSize(id), cy = p.y + AV / 2;
@@ -107,7 +107,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   const nodes: PositionedNode[] = [];
   vpeople.forEach(p => {
     const ps = pos[p.id]; if (!ps) return;
-    const cls: NodeClass = p.id === pov ? 'pov' : (graph.isMain(p.id, pov) ? 'main' : 'ext');
+    const cls: NodeClass = p.id === pov ? 'pov' : (famSet.has(p.id) ? 'main' : 'ext');
     const first = dispName(p.first_name, lang);
     const full = p.last_name ? `${first} ${dispName(p.last_name, lang)}` : first;
     nodes.push({ id: p.id, x: ps.x, y: ps.y, size: avSize(p.id), cls, label: first, initials: initialsOf(full) });

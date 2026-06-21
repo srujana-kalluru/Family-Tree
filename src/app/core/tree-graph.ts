@@ -36,10 +36,6 @@ export class TreeGraph {
     up(id);
     return out;
   }
-  /** MAIN family (POV-relative) = POV's spouse(s) + children. */
-  isMain(personId: number, povId: number): boolean {
-    return this.spouses(povId).some(s => s.id === personId) || this.children(povId).some(c => c.id === personId);
-  }
   /** Blood relatives (ancestors + their descendants), every blood relative's spouse, and the POV's spouse's parents. */
   bloodAndSpouse(povId: number): Set<number> {
     const anc = new Set<number>([povId]);
