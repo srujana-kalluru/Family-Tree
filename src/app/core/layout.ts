@@ -2,7 +2,7 @@ import { Lang, PositionedNode, Wire, BoxRect, TreeView, NodeClass } from './mode
 import { TreeGraph } from './tree-graph';
 import { dispName, initialsOf } from './translit';
 
-export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 108, FAM_GAP = 66, COL = 160, ROW = 190, MARGIN = 110;
+export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 94, FAM_GAP = 66, COL = 160, ROW = 220, MARGIN = 110;
 
 interface Anchor { cx: number; top: number; bottom: number; cy: number; left: number; right: number; }
 
@@ -56,14 +56,19 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
       const used = new Set<number>(); const units: { m: number[]; d: number; gk: number }[] = [];
       row.forEach(id => {
         if (used.has(id)) return;
-        const sp = S(id).find(s => lvl[s.id] === ri && !used.has(s.id));
-        if (sp) {
-          used.add(id); used.add(sp.id);
-          const m = dx[id] <= dx[sp.id] ? [id, sp.id] : [sp.id, id];
-          const g0 = pax[m[0]] != null ? pax[m[0]]! : dx[m[0]];
-          const g1 = pax[m[1]] != null ? pax[m[1]]! : dx[m[1]];
-          units.push({ m, d: (dx[id] + dx[sp.id]) / 2, gk: (g0 + g1) / 2 });
-        } else { used.add(id); units.push({ m: [id], d: dx[id], gk: (pax[id] != null ? pax[id]! : dx[id]) }); }
+        const sps = S(id).filter(s => lvl[s.id] === ri && !used.has(s.id));
+        used.add(id);
+        let m: number[];
+        if (!sps.length) m = [id];
+        else if (sps.length === 1) { used.add(sps[0].id); m = dx[id] <= dx[sps[0].id] ? [id, sps[0].id] : [sps[0].id, id]; }
+        else {
+          sps.forEach(s => used.add(s.id));
+          const sorted = sps.map(s => s.id).sort((a, b) => dx[a] - dx[b]);
+          const mid = Math.ceil(sorted.length / 2);
+          m = [...sorted.slice(0, mid), id, ...sorted.slice(mid)];   // hub centered among its spouses
+        }
+        const dv = m.map(x => dx[x]); const gv = m.map(x => pax[x] != null ? pax[x]! : dx[x]);
+        units.push({ m, d: dv.reduce((a, b) => a + b, 0) / dv.length, gk: gv.reduce((a, b) => a + b, 0) / gv.length });
       });
       units.sort((a, b) => (a.gk - b.gk) || (a.d - b.d));
       let cursor = -Infinity; let prevFam: boolean | null = null; const placed: [number, number][] = [];
@@ -101,8 +106,9 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   vpeople.forEach(p => {
     const ps = pos[p.id]; if (!ps) return;
     const cls: NodeClass = p.id === pov ? 'pov' : (graph.isMain(p.id, pov) ? 'main' : 'ext');
-    const label = dispName(p.name, lang);
-    nodes.push({ id: p.id, x: ps.x, y: ps.y, size: avSize(p.id), cls, label, initials: initialsOf(label) });
+    const first = dispName(p.first_name, lang);
+    const full = p.last_name ? `${first} ${dispName(p.last_name, lang)}` : first;
+    nodes.push({ id: p.id, x: ps.x, y: ps.y, size: avSize(p.id), cls, label: first, initials: initialsOf(full) });
   });
 
   const wires: Wire[] = [];
@@ -152,7 +158,9 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   if (fids.length >= 2) {
     let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
     fids.forEach(id => { const a = anchor(id)!; x1 = Math.min(x1, a.left); x2 = Math.max(x2, a.right); y1 = Math.min(y1, a.top); y2 = Math.max(y2, a.bottom); });
-    const padX = 26, padTop = 20, padBot = 36;
+    // anchor() bounds the avatar only; each node renders its name in an 8px-gap band below it
+    // (up to two lines), so the bottom pad must clear that band - hence padBot >> padTop.
+    const padX = 28, padTop = 22, padBot = 46;
     box = { x: x1 - padX, y: y1 - padTop, w: (x2 - x1) + padX * 2, h: (y2 - y1) + padTop + padBot };
   }
 

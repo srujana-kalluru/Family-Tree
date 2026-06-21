@@ -38,3 +38,16 @@ databaseChangeLog:
         - sql: 'alter table person drop column if exists created_by, drop column if exists created_by_email, drop column if exists created_at, drop column if exists updated_by, drop column if exists updated_by_email, drop column if exists updated_at'
         - sql: 'alter table marriage drop column if exists created_by, drop column if exists created_by_email, drop column if exists created_at'
         - sql: 'alter table parent_child drop column if exists created_by, drop column if exists created_by_email, drop column if exists created_at'
+  - changeSet:
+      id: 004-name-split
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/004-name-split.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql: 'alter table person add column if not exists name text'
+        - sql: "update person set name = trim(coalesce(first_name, '') || ' ' || coalesce(last_name, '')) where name is null"
+        - sql: 'alter table person alter column name set not null'
+        - sql: 'alter table person drop column if exists first_name'
+        - sql: 'alter table person drop column if exists last_name'

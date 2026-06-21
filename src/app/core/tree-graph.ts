@@ -29,6 +29,13 @@ export class TreeGraph {
     }
     return out;
   }
+  /** All ancestors of a person (cycle-safe). Used to forbid a parent-child link that would loop. */
+  ancestors(id: number): Set<number> {
+    const out = new Set<number>();
+    const up = (x: number) => this.parents(x).forEach(p => { if (!out.has(p.id)) { out.add(p.id); up(p.id); } });
+    up(id);
+    return out;
+  }
   /** MAIN family (POV-relative) = POV's spouse(s) + children. */
   isMain(personId: number, povId: number): boolean {
     return this.spouses(povId).some(s => s.id === personId) || this.children(povId).some(c => c.id === personId);

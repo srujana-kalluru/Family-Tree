@@ -1,6 +1,7 @@
 export interface Person {
   id: number;
-  name: string;
+  first_name: string;
+  last_name?: string | null;
   created_by_email?: string | null;
   updated_by_email?: string | null;
   created_at?: string | null;

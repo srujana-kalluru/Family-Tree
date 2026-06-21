@@ -11,7 +11,7 @@ import { Lang, Person } from './core/models';
 import { dispName } from './core/translit';
 import { T } from './core/i18n';
 
-type Relation = 'parent' | 'spouse' | 'child';
+type Relation = 'spouse' | 'child';
 type FormMode =
   | { type: 'add'; relation: Relation; anchor: number }
   | { type: 'addRoot' }
@@ -35,7 +35,10 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   formOpen = signal(false);
   formMode = signal<FormMode>(null);
-  fName = signal('');
+  fFirst = signal('');
+  fLast = signal('');
+  addExisting = signal(false);
+  linkQuery = signal('');
   delArmed = signal(false);
   povOpen = signal(false);
   povQuery = signal('');
@@ -52,16 +55,28 @@ export class AppComponent implements OnInit, AfterViewInit {
   povList = computed(() => {
     const q = this.povQuery().toLowerCase();
     return this.svc.data().people
-      .filter(p => p.name.toLowerCase().includes(q))
-      .sort((a, b) => dispName(a.name, this.lang()).localeCompare(dispName(b.name, this.lang())));
+      .filter(p => `${p.first_name} ${p.last_name ?? ''}`.toLowerCase().includes(q))
+      .sort((a, b) => dispName(a.first_name, this.lang()).localeCompare(dispName(b.first_name, this.lang())));
+  });
+  // People eligible to link into the current add slot. Spouse: anyone but self/existing spouses (loops ok).
+  // Child: exclude self + the anchor's ancestors, so a parent-child link can never form a cycle.
+  linkCandidates = computed(() => {
+    const m = this.formMode(); if (!m || m.type !== 'add') return [];
+    const g = this.graph(); const exclude = new Set<number>([m.anchor]);
+    if (m.relation === 'spouse') g.spouses(m.anchor).forEach(s => exclude.add(s.id));
+    else { g.ancestors(m.anchor).forEach(a => exclude.add(a)); g.children(m.anchor).forEach(c => exclude.add(c.id)); }
+    const q = this.linkQuery().toLowerCase();
+    return this.svc.data().people
+      .filter(p => !exclude.has(p.id) && `${p.first_name} ${p.last_name ?? ''}`.toLowerCase().includes(q))
+      .sort((a, b) => dispName(a.first_name, this.lang()).localeCompare(dispName(b.first_name, this.lang())));
   });
 
   private dragging = false; private sx = 0; private sy = 0; private opx = 0; private opy = 0;
   private clickTimer: ReturnType<typeof setTimeout> | null = null;
   private pinch = 0;
   private palettes = [
-    ['#FF9A9E', '#FAD0C4'], ['#A1C4FD', '#C2E9FB'], ['#FBC2EB', '#A6C1EE'], ['#84FAB0', '#8FD3F4'], ['#A18CD1', '#FBC2EB'],
-    ['#FFE29F', '#FF9A8B'], ['#5EE7DF', '#B490CA'], ['#F6D365', '#FDA085'], ['#96E6A1', '#D4FC79'], ['#FBAB7E', '#F7CE68'],
+    ['#5e9eff', '#3d82f0'], ['#34c759', '#28a64a'], ['#ff9f0a', '#f08800'], ['#ff476f', '#e82f59'],
+    ['#af52de', '#9a3fc8'], ['#30bcd6', '#1fa7c0'], ['#ff7a5a', '#f25c3a'], ['#7d8a9c', '#69768a'],
   ];
 
   constructor(public svc: DataService) {}
@@ -82,17 +97,24 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   t(k: string): string { return (T[this.lang()] as Record<string, string>)[k] ?? (T.en as Record<string, string>)[k] ?? k; }
   byId(id: number): Person | undefined { return this.graph().byId(id); }
-  nameOf(id: number): string { const p = this.byId(id); return p ? dispName(p.name, this.lang()) : ''; }
+  nameOf(id: number): string { const p = this.byId(id); return p ? dispName(p.first_name, this.lang()) : ''; }
+  lastNameOf(id: number): string { const p = this.byId(id); return p?.last_name ? dispName(p.last_name, this.lang()) : ''; }
   round(n: number): number { return Math.round(n); }
   grad(id: number): string {
     let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
     const [a, b] = this.palettes[h % this.palettes.length];
     return `linear-gradient(135deg,${a},${b})`;
   }
+  /** Canvas avatar colour by role: POV dark silver, family lighter blue, extended neutral. */
+  avatarBg(cls: string): string {
+    if (cls === 'pov') return 'linear-gradient(150deg,#8e93a0 0%,#5b606b 55%,#3f434c 100%)';
+    if (cls === 'main') return 'linear-gradient(160deg,#6cb0ff,#3d86ef)';
+    return 'linear-gradient(160deg,#c4cad6,#a7aebd)';
+  }
   parentsOf(id: number) { return this.graph().parents(id); }
   spousesOf(id: number) { return this.graph().spouses(id); }
   childrenOf(id: number) { return this.graph().children(id); }
-  relWord(rel: Relation): string { return this.t(rel === 'parent' ? 'parentLabel' : rel === 'spouse' ? 'spouseLabel' : 'childLabel'); }
+  relWord(rel: Relation): string { return this.t(rel === 'spouse' ? 'spouseLabel' : 'childLabel'); }
 
   setPov(id: number): void { this.pov.set(id); setTimeout(() => this.centerOn(id), 0); }
   onNodeClick(id: number): void { if (this.clickTimer) clearTimeout(this.clickTimer); this.clickTimer = setTimeout(() => this.setPov(id), 220); }
@@ -150,9 +172,9 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   addPersonBtn(): void { if (this.svc.data().people.length) this.openAdd('child', this.pov()); else this.openAddRoot(); }
-  openAddRoot(): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'addRoot' }); this.fName.set(''); this.delArmed.set(false); this.formOpen.set(true); }
-  openAdd(relation: Relation, anchorId: number): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'add', relation, anchor: anchorId }); this.fName.set(''); this.delArmed.set(false); this.formOpen.set(true); }
-  openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); this.fName.set(this.byId(id)?.name ?? ''); this.delArmed.set(false); this.formOpen.set(true); }
+  openAddRoot(): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'addRoot' }); this.fFirst.set(''); this.fLast.set(''); this.delArmed.set(false); this.formOpen.set(true); }
+  openAdd(relation: Relation, anchorId: number): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'add', relation, anchor: anchorId }); this.fFirst.set(''); this.fLast.set(''); this.addExisting.set(false); this.linkQuery.set(''); this.delArmed.set(false); this.formOpen.set(true); }
+  openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.delArmed.set(false); this.formOpen.set(true); }
   closeForm(): void { this.formOpen.set(false); this.formMode.set(null); }
   onScrim(e: MouseEvent, which: 'form' | 'pov'): void {
     if (e.target !== e.currentTarget) return;
@@ -160,11 +182,12 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   async save(): Promise<void> {
-    const name = this.fName().trim(); if (!name) return;
+    const first = this.fFirst().trim(); if (!first) return;
+    const last = this.fLast().trim() || null;
     const m = this.formMode(); if (!m) return;
-    if (m.type === 'edit') { await this.svc.rename(m.id, name); this.closeForm(); return; }
-    if (m.type === 'addRoot') { this.closeForm(); const id = await this.svc.addPerson(name); if (id > 0) this.setPov(id); return; }
-    await this.svc.addRelative(m.relation, m.anchor, name);
+    if (m.type === 'edit') { await this.svc.rename(m.id, first, last); this.closeForm(); return; }
+    if (m.type === 'addRoot') { this.closeForm(); const id = await this.svc.addPerson(first, last); if (id > 0) this.setPov(id); return; }
+    await this.svc.addRelative(m.relation, m.anchor, first, last);
     this.closeForm();
   }
   async confirmDelete(): Promise<void> {
@@ -174,6 +197,12 @@ export class AppComponent implements OnInit, AfterViewInit {
     if (this.pov() === id) this.pov.set(this.svc.data().people[0]?.id ?? 1);
   }
   quickAdd(relation: Relation): void { const m = this.formMode(); if (!m || m.type !== 'edit') return; const id = m.id; this.closeForm(); this.openAdd(relation, id); }
+  async pickExisting(personId: number): Promise<void> {
+    const m = this.formMode(); if (!m || m.type !== 'add') return;
+    this.closeForm();
+    if (m.relation === 'spouse') await this.svc.linkSpouse(m.anchor, personId);
+    else await this.svc.linkChild(m.anchor, personId);
+  }
   async unlinkParent(pId: number, id: number): Promise<void> { await this.svc.removeParentChild(pId, id); }
   async unlinkChild(id: number, cId: number): Promise<void> { await this.svc.removeParentChild(id, cId); }
   async unlinkSpouse(id: number, sId: number): Promise<void> { await this.svc.removeMarriage(id, sId); }

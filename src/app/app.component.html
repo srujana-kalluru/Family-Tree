@@ -1,9 +1,20 @@
 <header>
-  <div class="brand"><span class="logo">🌳</span><span>{{ t('appTitle') }}</span></div>
+  <div class="brand">
+    <span class="logo">
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+        <circle cx="12" cy="5" r="2.3" fill="#fff"/><circle cx="6" cy="19" r="2.3" fill="#fff"/><circle cx="18" cy="19" r="2.3" fill="#fff"/>
+        <path d="M12 7.3V13 M6 13H18 M6 13V16.7 M18 13V16.7" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+    <span>{{ t('appTitle') }}</span>
+  </div>
   <div class="spacer"></div>
   <button class="hbtn" (click)="openPov()" *ngIf="view().nodes.length"><span class="who">{{ t('viewpoint') }}</span> <b>{{ nameOf(pov()) }}</b></button>
   <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="addPersonBtn()">+ <span>{{ t('addPerson') }}</span></button>
-  <button class="hbtn" *ngIf="svc.online() && !svc.signedIn()" (click)="signInGoogle()">{{ t('signInGoogle') }}</button>
+  <button class="hbtn" *ngIf="svc.online() && !svc.signedIn() && view().nodes.length" (click)="signInGoogle()">
+    <svg class="gicon" viewBox="0 0 18 18" width="15" height="15" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+    {{ t('signInGoogle') }}
+  </button>
   <button class="hbtn" *ngIf="svc.online() && svc.signedIn()" (click)="signOut()" [title]="svc.userEmail() || ''">{{ t('signOut') }}</button>
   <div class="seg">
     <button [class.on]="lang()==='en'" (click)="switchLang('en')">EN</button>
@@ -16,9 +27,9 @@
   <div class="viewport" [style.transform]="transform()">
     <svg class="wires" [attr.width]="view().width" [attr.height]="view().height">
       <rect *ngIf="view().box as b" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h"
-            rx="28" ry="28" fill="rgba(10,132,255,0.05)" stroke="rgba(10,132,255,0.55)" stroke-width="2" stroke-dasharray="8 6"></rect>
+            rx="28" ry="28" fill="rgba(0,113,227,0.05)" stroke="rgba(0,113,227,0.45)" stroke-width="2" stroke-dasharray="7 6"></rect>
       <line *ngFor="let w of view().wires" [attr.x1]="w.x1" [attr.y1]="w.y1" [attr.x2]="w.x2" [attr.y2]="w.y2"
-            [attr.stroke]="w.main ? 'var(--main)' : 'var(--ext)'" [attr.stroke-width]="w.main ? 2.6 : 2" stroke-linecap="round"></line>
+            [attr.stroke]="w.main ? 'var(--main)' : 'var(--ext)'" [attr.stroke-width]="w.main ? 2.4 : 1.8" stroke-linecap="round"></line>
     </svg>
 
     <div *ngFor="let n of view().nodes" class="node" role="button" tabindex="0"
@@ -27,26 +38,35 @@
          [style.left.px]="n.x - NODE_W/2" [style.top.px]="n.y + AV/2 - n.size/2"
          (click)="onNodeClick(n.id)" (dblclick)="onNodeDbl(n.id)" (keydown.enter)="setPov(n.id)">
       <div class="avatar" [style.width.px]="n.size" [style.height.px]="n.size"
-           [style.font-size.px]="round(n.size*0.3)" [style.background]="grad(n.id)">
+           [style.font-size.px]="round(n.size*0.3)" [style.background]="avatarBg(n.cls)">
         {{ n.initials }}
-        <div class="badge" *ngIf="n.cls==='pov'">{{ t('povBadge') }}</div>
       </div>
       <div class="name">{{ n.label }}</div>
       <ng-container *ngIf="svc.canEdit()">
-        <button class="addh" [style.left.px]="NODE_W/2 - 12" [style.top.px]="-12"
-                [title]="t('addParent')" (click)="$event.stopPropagation(); openAdd('parent', n.id)">+</button>
-        <button class="addh" [style.left.px]="NODE_W/2 + n.size/2 - 12" [style.top.px]="n.size/2 - 12"
+        <button class="addh" [style.left.px]="NODE_W/2 + n.size/2 - 11" [style.top.px]="n.size/2 - 11"
                 [title]="t('addSpouse')" (click)="$event.stopPropagation(); openAdd('spouse', n.id)">+</button>
-        <button class="addh" [style.left.px]="NODE_W/2 - 12" [style.top.px]="n.size - 12"
+        <button class="addh" [style.left.px]="NODE_W/2 - 11" [style.top.px]="n.size - 11"
                 [title]="t('addChild')" (click)="$event.stopPropagation(); openAdd('child', n.id)">+</button>
       </ng-container>
     </div>
   </div>
 
-  <div class="empty" *ngIf="svc.ready() && view().nodes.length === 0">
-    <h2>{{ t('emptyTitle') }}</h2>
-    <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="openAddRoot()">+ {{ t('addFirst') }}</button>
-    <button class="hbtn primary" *ngIf="!svc.canEdit() && svc.online()" (click)="signInGoogle()">{{ t('signInGoogle') }}</button>
+  <div class="welcome" *ngIf="svc.ready() && view().nodes.length === 0">
+    <div class="welcome-card">
+      <div class="welcome-icon">
+        <svg viewBox="0 0 24 24" width="38" height="38" aria-hidden="true">
+          <circle cx="12" cy="5" r="2.3" fill="#fff"/><circle cx="6" cy="19" r="2.3" fill="#fff"/><circle cx="18" cy="19" r="2.3" fill="#fff"/>
+          <path d="M12 7.3V13 M6 13H18 M6 13V16.7 M18 13V16.7" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h1>{{ t('appTitle') }}</h1>
+      <p>{{ svc.canEdit() ? t('addFirstSub') : t('welcomeSub') }}</p>
+      <button *ngIf="svc.canEdit()" class="gbtn cta" (click)="openAddRoot()">{{ t('addFirst') }}</button>
+      <button *ngIf="!svc.canEdit() && svc.online()" class="gbtn" (click)="signInGoogle()">
+        <svg class="gicon" viewBox="0 0 18 18" width="17" height="17" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+        {{ t('signInGoogle') }}
+      </button>
+    </div>
   </div>
 
   <div class="zoombar" *ngIf="view().nodes.length">
@@ -76,8 +96,28 @@
     <p class="sub" *ngIf="isEdit()">{{ t('editSub') }}</p>
     <div class="relbox" *ngIf="isAdd()">{{ t('addingAs') }} <b>{{ relWord(addRelation()) }}</b> {{ t('of') }} <b>{{ nameOf(addAnchor()) }}</b></div>
 
-    <label>{{ t('name') }}</label>
-    <input type="text" [ngModel]="fName()" (ngModelChange)="fName.set($event)" (keydown.enter)="save()" autocomplete="off" />
+    <div class="seg modeg" *ngIf="isAdd()">
+      <button [class.on]="!addExisting()" (click)="addExisting.set(false)">{{ t('newPerson') }}</button>
+      <button [class.on]="addExisting()" (click)="addExisting.set(true)">{{ t('existingPerson') }}</button>
+    </div>
+
+    <ng-container *ngIf="!isAdd() || !addExisting()">
+      <label>{{ t('firstName') }}</label>
+      <input type="text" [ngModel]="fFirst()" (ngModelChange)="fFirst.set($event)" (keydown.enter)="save()" autocomplete="off" />
+      <label>{{ t('lastName') }}</label>
+      <input type="text" [ngModel]="fLast()" (ngModelChange)="fLast.set($event)" (keydown.enter)="save()" autocomplete="off" />
+    </ng-container>
+
+    <div *ngIf="isAdd() && addExisting()">
+      <div class="search"><input type="text" [ngModel]="linkQuery()" (ngModelChange)="linkQuery.set($event)" [placeholder]="t('searchName')" autocomplete="off" /></div>
+      <div class="plist">
+        <div class="pitem" *ngFor="let p of linkCandidates()" (click)="pickExisting(p.id)">
+          <div class="pav" [style.background]="grad(p.id)">{{ (nameOf(p.id)[0] || '').toUpperCase() }}</div>
+          <div class="pmeta"><div class="pn">{{ nameOf(p.id) }}<span class="pl" *ngIf="lastNameOf(p.id)"> {{ lastNameOf(p.id) }}</span></div></div>
+        </div>
+        <div class="relnote" *ngIf="!linkCandidates().length">{{ t('noMatches') }}</div>
+      </div>
+    </div>
 
     <div *ngIf="isEdit()">
       <label>{{ t('relationships') }}</label>
@@ -101,7 +141,6 @@
 
       <label>{{ t('quickAdd') }}</label>
       <div class="quick">
-        <button class="chip" (click)="quickAdd('parent')">{{ t('parentLabel') }}</button>
         <button class="chip" (click)="quickAdd('spouse')">{{ t('spouseLabel') }}</button>
         <button class="chip" (click)="quickAdd('child')">{{ t('childLabel') }}</button>
       </div>
@@ -116,7 +155,7 @@
 
     <div class="modal-actions">
       <button class="btn cancel" (click)="closeForm()">{{ t('cancel') }}</button>
-      <button class="btn save" (click)="save()">{{ t('save') }}</button>
+      <button class="btn save" *ngIf="!(isAdd() && addExisting())" (click)="save()">{{ t('save') }}</button>
     </div>
   </div>
 </div>
@@ -130,7 +169,7 @@
       <div class="pitem" *ngFor="let p of povList()" (click)="pickPov(p.id)">
         <div class="pav" [style.background]="grad(p.id)">{{ (nameOf(p.id)[0] || '').toUpperCase() }}</div>
         <div class="pmeta">
-          <div class="pn">{{ nameOf(p.id) }}</div>
+          <div class="pn">{{ nameOf(p.id) }}<span class="pl" *ngIf="lastNameOf(p.id)"> {{ lastNameOf(p.id) }}</span></div>
           <div class="cur" *ngIf="p.id===pov()">{{ t('current') }}</div>
         </div>
       </div>

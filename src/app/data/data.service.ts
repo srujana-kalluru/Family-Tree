@@ -3,8 +3,8 @@ import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
 import { environment } from '../../environments/environment';
 import { TreeData, Person, Marriage, ParentChild } from '../core/models';
 
-type Relation = 'parent' | 'spouse' | 'child';
-const SELECT = 'id,name,created_by_email,updated_by_email,created_at,updated_at';
+type Relation = 'spouse' | 'child';
+const SELECT = 'id,first_name,last_name,created_by_email,updated_by_email,created_at,updated_at';
 const EMPTY: TreeData = { people: [], marriages: [], parentChild: [] };
 
 @Injectable({ providedIn: 'root' })
@@ -79,44 +79,73 @@ export class DataService {
     const email = this.userEmail(); const now = new Date().toISOString();
     return { ...p, created_by_email: email, updated_by_email: email, created_at: now, updated_at: now };
   }
+  private spousesIn(d: TreeData, id: number): number[] {
+    const out: number[] = [];
+    d.marriages.forEach(m => { if (m.partner1_id === id) out.push(m.partner2_id); else if (m.partner2_id === id) out.push(m.partner1_id); });
+    return out;
+  }
   private linkLocal(d: TreeData, relation: Relation, anchorId: number, id: number): void {
-    if (relation === 'parent') d.parentChild.push({ parent_id: id, child_id: anchorId });
-    if (relation === 'child') d.parentChild.push({ parent_id: anchorId, child_id: id });
     if (relation === 'spouse') d.marriages.push({ id: this.nextMarriageId(), partner1_id: anchorId, partner2_id: id });
+    if (relation === 'child') {
+      d.parentChild.push({ parent_id: anchorId, child_id: id });
+      const sp = this.spousesIn(d, anchorId);   // the couple's other partner is inferred as the second parent
+      if (sp.length === 1) d.parentChild.push({ parent_id: sp[0], child_id: id });
+    }
   }
 
   /** Add a standalone person (the first person in an empty tree). Returns the new id, or -1 on failure. */
-  async addPerson(name: string): Promise<number> {
+  async addPerson(first: string, last: string | null): Promise<number> {
     if (!this.client) return -1;
     try {
-      const ins = await this.client.from('person').insert({ name }).select('id').single();
+      const ins = await this.client.from('person').insert({ first_name: first, last_name: last }).select('id').single();
       if (ins.error) throw ins.error;
       const id = (ins.data as { id: number }).id;
-      this.mutate(d => d.people.push(this.stamp({ id, name })));
+      this.mutate(d => d.people.push(this.stamp({ id, first_name: first, last_name: last })));
       return id;
     } catch (e) { this.fail(e); await this.load(); return -1; }
   }
 
-  async addRelative(relation: Relation, anchorId: number, name: string): Promise<void> {
+  async addRelative(relation: Relation, anchorId: number, first: string, last: string | null): Promise<void> {
     if (!this.client) return;
     try {
-      const ins = await this.client.from('person').insert({ name }).select('id').single();
+      const ins = await this.client.from('person').insert({ first_name: first, last_name: last }).select('id').single();
       if (ins.error) throw ins.error;
       const id = (ins.data as { id: number }).id;
       let linkErr = null;
-      if (relation === 'parent') linkErr = (await this.client.from('parent_child').insert({ parent_id: id, child_id: anchorId })).error;
-      if (relation === 'child') linkErr = (await this.client.from('parent_child').insert({ parent_id: anchorId, child_id: id })).error;
       if (relation === 'spouse') linkErr = (await this.client.from('marriage').insert({ partner1_id: anchorId, partner2_id: id })).error;
+      if (relation === 'child') {
+        const rows = [{ parent_id: anchorId, child_id: id }];
+        const sp = this.spousesIn(this.data(), anchorId);
+        if (sp.length === 1) rows.push({ parent_id: sp[0], child_id: id });
+        linkErr = (await this.client.from('parent_child').insert(rows)).error;
+      }
       if (linkErr) throw linkErr;
-      this.mutate(d => { d.people.push(this.stamp({ id, name })); this.linkLocal(d, relation, anchorId, id); });
+      this.mutate(d => { d.people.push(this.stamp({ id, first_name: first, last_name: last })); this.linkLocal(d, relation, anchorId, id); });
     } catch (e) { this.fail(e); await this.load(); }
   }
 
-  async rename(id: number, name: string): Promise<void> {
+  /** Link two people who already exist as spouses (loops are allowed - e.g. cousin/uncle marriages). */
+  async linkSpouse(aId: number, bId: number): Promise<void> {
+    if (!this.client || aId === bId) return;
+    if (this.data().marriages.some(m => (m.partner1_id === aId && m.partner2_id === bId) || (m.partner1_id === bId && m.partner2_id === aId))) return;
+    this.mutate(d => d.marriages.push({ id: this.nextMarriageId(), partner1_id: aId, partner2_id: bId }));
+    const { error } = await this.client.from('marriage').insert({ partner1_id: aId, partner2_id: bId });
+    if (error) { this.fail(error); await this.load(); }
+  }
+  /** Link an existing person as a child of a parent. Caller must keep parent_child acyclic. */
+  async linkChild(parentId: number, childId: number): Promise<void> {
+    if (!this.client || parentId === childId) return;
+    if (this.data().parentChild.some(r => r.parent_id === parentId && r.child_id === childId)) return;
+    this.mutate(d => d.parentChild.push({ parent_id: parentId, child_id: childId }));
+    const { error } = await this.client.from('parent_child').insert({ parent_id: parentId, child_id: childId });
+    if (error) { this.fail(error); await this.load(); }
+  }
+
+  async rename(id: number, first: string, last: string | null): Promise<void> {
     if (!this.client) return;
     const email = this.userEmail(); const now = new Date().toISOString();
-    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.name = name; p.updated_by_email = email; p.updated_at = now; } });
-    const { error } = await this.client.from('person').update({ name, updated_by: this.userId(), updated_by_email: email, updated_at: now }).eq('id', id);
+    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.first_name = first; p.last_name = last; p.updated_by_email = email; p.updated_at = now; } });
+    const { error } = await this.client.from('person').update({ first_name: first, last_name: last, updated_by: this.userId(), updated_by_email: email, updated_at: now }).eq('id', id);
     if (error) { this.fail(error); await this.load(); }
   }
   async deletePerson(id: number): Promise<void> {
