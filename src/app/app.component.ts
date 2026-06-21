@@ -9,7 +9,7 @@ import { TreeGraph } from './core/tree-graph';
 import { buildView, AV, NODE_W } from './core/layout';
 import { Lang, Person } from './core/models';
 import { dispName } from './core/translit';
-import { T } from './core/i18n';
+import { tr } from './core/i18n';
 
 type Relation = 'spouse' | 'child';
 type FormMode =
@@ -99,7 +99,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     setTimeout(() => this.fitView(), 0);
   }
 
-  t(k: string): string { return (T[this.lang()] as Record<string, string>)[k] ?? (T.en as Record<string, string>)[k] ?? k; }
+  t(k: string): string { return tr(k, this.lang()); }
   byId(id: number): Person | undefined { return this.graph().byId(id); }
   nameOf(id: number): string { const p = this.byId(id); return p ? dispName(p.first_name, this.lang()) : ''; }
   lastNameOf(id: number): string { const p = this.byId(id); return p?.last_name ? dispName(p.last_name, this.lang()) : ''; }
