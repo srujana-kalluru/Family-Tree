@@ -110,16 +110,16 @@
     </div>
 
     <ng-container *ngIf="!isAdd() || !addExisting()">
-      <label>{{ t('firstName') }}</label>
-      <input type="text" [ngModel]="fFirst()" (ngModelChange)="fFirst.set($event)" (keydown.enter)="save()" autocomplete="off" />
-      <label>{{ t('lastName') }}</label>
-      <input type="text" [ngModel]="fLast()" (ngModelChange)="fLast.set($event)" (keydown.enter)="save()" autocomplete="off" />
+      <label for="f-first">{{ t('firstName') }}</label>
+      <input id="f-first" type="text" [ngModel]="fFirst()" (ngModelChange)="fFirst.set($event)" (keydown.enter)="save()" autocomplete="off" />
+      <label for="f-last">{{ t('lastName') }}</label>
+      <input id="f-last" type="text" [ngModel]="fLast()" (ngModelChange)="fLast.set($event)" (keydown.enter)="save()" autocomplete="off" />
     </ng-container>
 
     <div *ngIf="isAdd() && addExisting()">
-      <div class="search"><input type="text" [ngModel]="linkQuery()" (ngModelChange)="linkQuery.set($event)" [placeholder]="t('searchName')" autocomplete="off" /></div>
+      <div class="search"><input type="text" [ngModel]="linkQuery()" (ngModelChange)="linkQuery.set($event)" [placeholder]="t('searchName')" [attr.aria-label]="t('searchName')" autocomplete="off" /></div>
       <div class="plist">
-        <div class="pitem" *ngFor="let p of linkCandidates()" (click)="pickExisting(p.id)">
+        <div class="pitem" *ngFor="let p of linkCandidates()" role="button" tabindex="0" (click)="pickExisting(p.id)" (keydown.enter)="pickExisting(p.id)">
           <ng-container *ngTemplateOutlet="personRow; context: { $implicit: p }"></ng-container>
         </div>
         <div class="relnote" *ngIf="!linkCandidates().length">{{ t('noMatches') }}</div>
@@ -171,9 +171,9 @@
   <div class="modal">
     <h2>{{ t('chooseViewpoint') }}</h2>
     <p class="sub">{{ t('chooseSub') }}</p>
-    <div class="search"><input type="text" [ngModel]="povQuery()" (ngModelChange)="povQuery.set($event)" [placeholder]="t('searchName')" /></div>
+    <div class="search"><input type="text" [ngModel]="povQuery()" (ngModelChange)="povQuery.set($event)" [placeholder]="t('searchName')" [attr.aria-label]="t('searchName')" /></div>
     <div class="plist">
-      <div class="pitem" *ngFor="let p of povList()" (click)="pickPov(p.id)">
+      <div class="pitem" *ngFor="let p of povList()" role="button" tabindex="0" (click)="pickPov(p.id)" (keydown.enter)="pickPov(p.id)">
         <ng-container *ngTemplateOutlet="personRow; context: { $implicit: p }"></ng-container>
       </div>
     </div>
