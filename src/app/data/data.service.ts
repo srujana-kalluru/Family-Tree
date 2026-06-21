@@ -79,17 +79,11 @@ export class DataService {
     const email = this.userEmail(); const now = new Date().toISOString();
     return { ...p, created_by_email: email, updated_by_email: email, created_at: now, updated_at: now };
   }
-  private spousesIn(d: TreeData, id: number): number[] {
-    const out: number[] = [];
-    d.marriages.forEach(m => { if (m.partner1_id === id) out.push(m.partner2_id); else if (m.partner2_id === id) out.push(m.partner1_id); });
-    return out;
-  }
-  private linkLocal(d: TreeData, relation: Relation, anchorId: number, id: number): void {
+  private linkLocal(d: TreeData, relation: Relation, anchorId: number, id: number, coParentId: number | null = null): void {
     if (relation === 'spouse') d.marriages.push({ id: this.nextMarriageId(), partner1_id: anchorId, partner2_id: id });
     if (relation === 'child') {
       d.parentChild.push({ parent_id: anchorId, child_id: id });
-      const sp = this.spousesIn(d, anchorId);   // the couple's other partner is inferred as the second parent
-      if (sp.length === 1) d.parentChild.push({ parent_id: sp[0], child_id: id });
+      if (coParentId != null) d.parentChild.push({ parent_id: coParentId, child_id: id });   // second parent only if the user picks one
     }
   }
 
@@ -105,7 +99,7 @@ export class DataService {
     } catch (e) { this.fail(e); await this.load(); return -1; }
   }
 
-  async addRelative(relation: Relation, anchorId: number, first: string, last: string | null): Promise<void> {
+  async addRelative(relation: Relation, anchorId: number, first: string, last: string | null, coParentId: number | null = null): Promise<void> {
     if (!this.client) return;
     try {
       const ins = await this.client.from('person').insert({ first_name: first, last_name: last }).select('id').single();
@@ -115,12 +109,11 @@ export class DataService {
       if (relation === 'spouse') linkErr = (await this.client.from('marriage').insert({ partner1_id: anchorId, partner2_id: id })).error;
       if (relation === 'child') {
         const rows = [{ parent_id: anchorId, child_id: id }];
-        const sp = this.spousesIn(this.data(), anchorId);
-        if (sp.length === 1) rows.push({ parent_id: sp[0], child_id: id });
+        if (coParentId != null) rows.push({ parent_id: coParentId, child_id: id });
         linkErr = (await this.client.from('parent_child').insert(rows)).error;
       }
       if (linkErr) throw linkErr;
-      this.mutate(d => { d.people.push(this.stamp({ id, first_name: first, last_name: last })); this.linkLocal(d, relation, anchorId, id); });
+      this.mutate(d => { d.people.push(this.stamp({ id, first_name: first, last_name: last })); this.linkLocal(d, relation, anchorId, id, coParentId); });
     } catch (e) { this.fail(e); await this.load(); }
   }
 
@@ -133,11 +126,14 @@ export class DataService {
     if (error) { this.fail(error); await this.load(); }
   }
   /** Link an existing person as a child of a parent. Caller must keep parent_child acyclic. */
-  async linkChild(parentId: number, childId: number): Promise<void> {
+  async linkChild(parentId: number, childId: number, coParentId: number | null = null): Promise<void> {
     if (!this.client || parentId === childId) return;
-    if (this.data().parentChild.some(r => r.parent_id === parentId && r.child_id === childId)) return;
-    this.mutate(d => d.parentChild.push({ parent_id: parentId, child_id: childId }));
-    const { error } = await this.client.from('parent_child').insert({ parent_id: parentId, child_id: childId });
+    const exists = (p: number) => this.data().parentChild.some(r => r.parent_id === p && r.child_id === childId);
+    const rows = exists(parentId) ? [] : [{ parent_id: parentId, child_id: childId }];
+    if (coParentId != null && coParentId !== childId && !exists(coParentId)) rows.push({ parent_id: coParentId, child_id: childId });
+    if (!rows.length) return;
+    this.mutate(d => rows.forEach(r => d.parentChild.push(r)));
+    const { error } = await this.client.from('parent_child').insert(rows);
     if (error) { this.fail(error); await this.load(); }
   }
 

@@ -39,6 +39,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   fLast = signal('');
   addExisting = signal(false);
   linkQuery = signal('');
+  coParent = signal<number | null>(null);
   delArmed = signal(false);
   povOpen = signal(false);
   povQuery = signal('');
@@ -69,6 +70,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     return this.svc.data().people
       .filter(p => !exclude.has(p.id) && `${p.first_name} ${p.last_name ?? ''}`.toLowerCase().includes(q))
       .sort((a, b) => dispName(a.first_name, this.lang()).localeCompare(dispName(b.first_name, this.lang())));
+  });
+  // The anchor's spouses, offered as the optional second parent when adding a child.
+  anchorSpouses = computed(() => {
+    const m = this.formMode();
+    return m && m.type === 'add' && m.relation === 'child' ? this.graph().spouses(m.anchor) : [];
   });
 
   private dragging = false; private sx = 0; private sy = 0; private opx = 0; private opy = 0;
@@ -173,7 +179,14 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   addPersonBtn(): void { this.openAddRoot(); }
   openAddRoot(): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'addRoot' }); this.fFirst.set(''); this.fLast.set(''); this.delArmed.set(false); this.formOpen.set(true); }
-  openAdd(relation: Relation, anchorId: number): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'add', relation, anchor: anchorId }); this.fFirst.set(''); this.fLast.set(''); this.addExisting.set(false); this.linkQuery.set(''); this.delArmed.set(false); this.formOpen.set(true); }
+  openAdd(relation: Relation, anchorId: number): void {
+    if (!this.svc.canEdit()) return;
+    this.formMode.set({ type: 'add', relation, anchor: anchorId });
+    this.fFirst.set(''); this.fLast.set(''); this.addExisting.set(false); this.linkQuery.set('');
+    const sp = relation === 'child' ? this.graph().spouses(anchorId) : [];
+    this.coParent.set(sp.length === 1 ? sp[0].id : null);   // default to the sole spouse, but editable
+    this.delArmed.set(false); this.formOpen.set(true);
+  }
   openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.delArmed.set(false); this.formOpen.set(true); }
   closeForm(): void { this.formOpen.set(false); this.formMode.set(null); }
   onScrim(e: MouseEvent, which: 'form' | 'pov'): void {
@@ -187,7 +200,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const m = this.formMode(); if (!m) return;
     if (m.type === 'edit') { await this.svc.rename(m.id, first, last); this.closeForm(); return; }
     if (m.type === 'addRoot') { this.closeForm(); const id = await this.svc.addPerson(first, last); if (id > 0) this.setPov(id); return; }
-    await this.svc.addRelative(m.relation, m.anchor, first, last);
+    await this.svc.addRelative(m.relation, m.anchor, first, last, this.coParent());
     this.closeForm();
   }
   async confirmDelete(): Promise<void> {
@@ -201,7 +214,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const m = this.formMode(); if (!m || m.type !== 'add') return;
     this.closeForm();
     if (m.relation === 'spouse') await this.svc.linkSpouse(m.anchor, personId);
-    else await this.svc.linkChild(m.anchor, personId);
+    else await this.svc.linkChild(m.anchor, personId, this.coParent());
   }
   async unlinkParent(pId: number, id: number): Promise<void> { await this.svc.removeParentChild(pId, id); }
   async unlinkChild(id: number, cId: number): Promise<void> { await this.svc.removeParentChild(id, cId); }

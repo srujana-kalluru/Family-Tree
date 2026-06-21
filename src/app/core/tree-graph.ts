@@ -40,7 +40,7 @@ export class TreeGraph {
   isMain(personId: number, povId: number): boolean {
     return this.spouses(povId).some(s => s.id === personId) || this.children(povId).some(c => c.id === personId);
   }
-  /** Blood relatives (ancestors + their descendants) + POV's spouse(s), spouse's parents and children's spouses. */
+  /** Blood relatives (ancestors + their descendants), every blood relative's spouse, and the POV's spouse's parents. */
   bloodAndSpouse(povId: number): Set<number> {
     const anc = new Set<number>([povId]);
     const up = (id: number) => { this.parents(id).forEach(p => { if (!anc.has(p.id)) { anc.add(p.id); up(p.id); } }); };
@@ -48,8 +48,10 @@ export class TreeGraph {
     const blood = new Set<number>();
     const down = (id: number) => { if (blood.has(id)) return; blood.add(id); this.children(id).forEach(c => down(c.id)); };
     anc.forEach(a => down(a));
-    this.spouses(povId).forEach(s => { blood.add(s.id); this.parents(s.id).forEach(pp => blood.add(pp.id)); });
-    this.children(povId).forEach(c => this.spouses(c.id).forEach(s => blood.add(s.id)));
+    // every blood relative's spouse joins as extended family (sibling-in-law, uncle's wife, child's spouse, POV's own spouse, ...)
+    [...blood].forEach(id => this.spouses(id).forEach(s => blood.add(s.id)));
+    // plus the POV's spouse's parents (the in-laws)
+    this.spouses(povId).forEach(s => this.parents(s.id).forEach(pp => blood.add(pp.id)));
     return blood;
   }
   /** IMMEDIATE family: married -> spouse(s)+children; unmarried -> parents+siblings. POV included. */

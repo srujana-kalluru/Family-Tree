@@ -96,6 +96,14 @@
     <p class="sub" *ngIf="isEdit()">{{ t('editSub') }}</p>
     <div class="relbox" *ngIf="isAdd()">{{ t('addingAs') }} <b>{{ relWord(addRelation()) }}</b> {{ t('of') }} <b>{{ nameOf(addAnchor()) }}</b></div>
 
+    <div *ngIf="isAdd() && addRelation()==='child' && anchorSpouses().length">
+      <label>{{ t('secondParent') }}</label>
+      <div class="quick">
+        <button class="chip" *ngFor="let s of anchorSpouses()" [class.on]="coParent()===s.id" (click)="coParent.set(s.id)">{{ nameOf(s.id) }}</button>
+        <button class="chip" [class.on]="coParent()===null" (click)="coParent.set(null)">{{ t('noSecondParent') }}</button>
+      </div>
+    </div>
+
     <div class="seg modeg" *ngIf="isAdd()">
       <button [class.on]="!addExisting()" (click)="addExisting.set(false)">{{ t('newPerson') }}</button>
       <button [class.on]="addExisting()" (click)="addExisting.set(true)">{{ t('existingPerson') }}</button>
