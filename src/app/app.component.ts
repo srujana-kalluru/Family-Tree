@@ -171,7 +171,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.panY.set(st.clientHeight / 2 - (p.y + AV / 2) * sc);
   }
 
-  addPersonBtn(): void { if (this.svc.data().people.length) this.openAdd('child', this.pov()); else this.openAddRoot(); }
+  addPersonBtn(): void { this.openAddRoot(); }
   openAddRoot(): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'addRoot' }); this.fFirst.set(''); this.fLast.set(''); this.delArmed.set(false); this.formOpen.set(true); }
   openAdd(relation: Relation, anchorId: number): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'add', relation, anchor: anchorId }); this.fFirst.set(''); this.fLast.set(''); this.addExisting.set(false); this.linkQuery.set(''); this.delArmed.set(false); this.formOpen.set(true); }
   openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.delArmed.set(false); this.formOpen.set(true); }
