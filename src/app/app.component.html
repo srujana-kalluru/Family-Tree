@@ -1,0 +1,139 @@
+<header>
+  <div class="brand"><span class="logo">🌳</span><span>{{ t('appTitle') }}</span></div>
+  <div class="spacer"></div>
+  <button class="hbtn" (click)="openPov()" *ngIf="view().nodes.length"><span class="who">{{ t('viewpoint') }}</span> <b>{{ nameOf(pov()) }}</b></button>
+  <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="addPersonBtn()">+ <span>{{ t('addPerson') }}</span></button>
+  <button class="hbtn" *ngIf="svc.online() && !svc.signedIn()" (click)="signInGoogle()">{{ t('signInGoogle') }}</button>
+  <button class="hbtn" *ngIf="svc.online() && svc.signedIn()" (click)="signOut()" [title]="svc.userEmail() || ''">{{ t('signOut') }}</button>
+  <div class="seg">
+    <button [class.on]="lang()==='en'" (click)="switchLang('en')">EN</button>
+    <button [class.on]="lang()==='te'" (click)="switchLang('te')">తెలుగు</button>
+  </div>
+</header>
+
+<div class="stage" #stage (mousedown)="onStageMouseDown($event)"
+     (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd()">
+  <div class="viewport" [style.transform]="transform()">
+    <svg class="wires" [attr.width]="view().width" [attr.height]="view().height">
+      <rect *ngIf="view().box as b" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h"
+            rx="28" ry="28" fill="rgba(10,132,255,0.05)" stroke="rgba(10,132,255,0.55)" stroke-width="2" stroke-dasharray="8 6"></rect>
+      <line *ngFor="let w of view().wires" [attr.x1]="w.x1" [attr.y1]="w.y1" [attr.x2]="w.x2" [attr.y2]="w.y2"
+            [attr.stroke]="w.main ? 'var(--main)' : 'var(--ext)'" [attr.stroke-width]="w.main ? 2.6 : 2" stroke-linecap="round"></line>
+    </svg>
+
+    <div *ngFor="let n of view().nodes" class="node" role="button" tabindex="0"
+         [attr.aria-label]="n.label"
+         [class.pov]="n.cls==='pov'" [class.main]="n.cls==='main'" [class.ext]="n.cls==='ext'"
+         [style.left.px]="n.x - NODE_W/2" [style.top.px]="n.y + AV/2 - n.size/2"
+         (click)="onNodeClick(n.id)" (dblclick)="onNodeDbl(n.id)" (keydown.enter)="setPov(n.id)">
+      <div class="avatar" [style.width.px]="n.size" [style.height.px]="n.size"
+           [style.font-size.px]="round(n.size*0.3)" [style.background]="grad(n.id)">
+        {{ n.initials }}
+        <div class="badge" *ngIf="n.cls==='pov'">{{ t('povBadge') }}</div>
+      </div>
+      <div class="name">{{ n.label }}</div>
+      <ng-container *ngIf="svc.canEdit()">
+        <button class="addh" [style.left.px]="NODE_W/2 - 12" [style.top.px]="-12"
+                [title]="t('addParent')" (click)="$event.stopPropagation(); openAdd('parent', n.id)">+</button>
+        <button class="addh" [style.left.px]="NODE_W/2 + n.size/2 - 12" [style.top.px]="n.size/2 - 12"
+                [title]="t('addSpouse')" (click)="$event.stopPropagation(); openAdd('spouse', n.id)">+</button>
+        <button class="addh" [style.left.px]="NODE_W/2 - 12" [style.top.px]="n.size - 12"
+                [title]="t('addChild')" (click)="$event.stopPropagation(); openAdd('child', n.id)">+</button>
+      </ng-container>
+    </div>
+  </div>
+
+  <div class="empty" *ngIf="svc.ready() && view().nodes.length === 0">
+    <h2>{{ t('emptyTitle') }}</h2>
+    <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="openAddRoot()">+ {{ t('addFirst') }}</button>
+    <button class="hbtn primary" *ngIf="!svc.canEdit() && svc.online()" (click)="signInGoogle()">{{ t('signInGoogle') }}</button>
+  </div>
+
+  <div class="zoombar" *ngIf="view().nodes.length">
+    <button (click)="zoomBtn(0.83)" title="Zoom out">−</button>
+    <button class="fit" (click)="fitView()">{{ t('fit') }}</button>
+    <button (click)="zoomBtn(1.2)" title="Zoom in">+</button>
+  </div>
+</div>
+
+<div class="caption" *ngIf="view().nodes.length">
+  <span>{{ t('panHint') }}</span>
+  <span class="legend">
+    <span><i class="dot m"></i>{{ t('mainFamily') }}</span>
+    <span><i class="dot e"></i>{{ t('extended') }}</span>
+    <span class="tag-offline" *ngIf="svc.ready() && !svc.online()">{{ t('offline') }}</span>
+  </span>
+</div>
+
+<div class="toast" *ngIf="svc.lastError() as err">
+  <span>{{ err }}</span>
+  <button (click)="svc.clearError()" aria-label="Dismiss">×</button>
+</div>
+
+<div class="scrim" *ngIf="formOpen()" (click)="onScrim($event, 'form')">
+  <div class="modal">
+    <h2>{{ isEdit() ? t('editPerson') : t('addTitle') }}</h2>
+    <p class="sub" *ngIf="isEdit()">{{ t('editSub') }}</p>
+    <div class="relbox" *ngIf="isAdd()">{{ t('addingAs') }} <b>{{ relWord(addRelation()) }}</b> {{ t('of') }} <b>{{ nameOf(addAnchor()) }}</b></div>
+
+    <label>{{ t('name') }}</label>
+    <input type="text" [ngModel]="fName()" (ngModelChange)="fName.set($event)" (keydown.enter)="save()" autocomplete="off" />
+
+    <div *ngIf="isEdit()">
+      <label>{{ t('relationships') }}</label>
+      <div class="relrow" *ngIf="parentsOf(editId()).length">
+        <span class="rellabel">{{ t('parents') }}</span>
+        <span class="relchip" *ngFor="let p of parentsOf(editId())">{{ nameOf(p.id) }}
+          <button class="relx" [title]="t('remove')" (click)="unlinkParent(p.id, editId())">×</button></span>
+      </div>
+      <div class="relrow" *ngIf="spousesOf(editId()).length">
+        <span class="rellabel">{{ t('spouse') }}</span>
+        <span class="relchip" *ngFor="let s of spousesOf(editId())">{{ nameOf(s.id) }}
+          <button class="relx" [title]="t('remove')" (click)="unlinkSpouse(editId(), s.id)">×</button></span>
+      </div>
+      <div class="relrow" *ngIf="childrenOf(editId()).length">
+        <span class="rellabel">{{ t('children') }}</span>
+        <span class="relchip" *ngFor="let c of childrenOf(editId())">{{ nameOf(c.id) }}
+          <button class="relx" [title]="t('remove')" (click)="unlinkChild(editId(), c.id)">×</button></span>
+      </div>
+      <div class="relnote" *ngIf="!parentsOf(editId()).length && !spousesOf(editId()).length && !childrenOf(editId()).length">{{ t('noLinks') }}</div>
+      <div class="relnote">{{ t('siblingsNote') }}</div>
+
+      <label>{{ t('quickAdd') }}</label>
+      <div class="quick">
+        <button class="chip" (click)="quickAdd('parent')">{{ t('parentLabel') }}</button>
+        <button class="chip" (click)="quickAdd('spouse')">{{ t('spouseLabel') }}</button>
+        <button class="chip" (click)="quickAdd('child')">{{ t('childLabel') }}</button>
+      </div>
+
+      <div class="audit" *ngIf="byId(editId()) as p">
+        <span *ngIf="p.created_by_email"><b>{{ t('addedBy') }}</b> {{ p.created_by_email }}</span>
+        <span *ngIf="p.updated_by_email && (p.updated_by_email !== p.created_by_email || p.updated_at !== p.created_at)"> · <b>{{ t('modifiedBy') }}</b> {{ p.updated_by_email }}</span>
+      </div>
+
+      <button class="dangerlink" [class.armed]="delArmed()" (click)="confirmDelete()">{{ delArmed() ? t('confirmDelete') : t('deletePerson') }}</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn cancel" (click)="closeForm()">{{ t('cancel') }}</button>
+      <button class="btn save" (click)="save()">{{ t('save') }}</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" *ngIf="povOpen()" (click)="onScrim($event, 'pov')">
+  <div class="modal">
+    <h2>{{ t('chooseViewpoint') }}</h2>
+    <p class="sub">{{ t('chooseSub') }}</p>
+    <div class="search"><input type="text" [ngModel]="povQuery()" (ngModelChange)="povQuery.set($event)" [placeholder]="t('searchName')" /></div>
+    <div class="plist">
+      <div class="pitem" *ngFor="let p of povList()" (click)="pickPov(p.id)">
+        <div class="pav" [style.background]="grad(p.id)">{{ (nameOf(p.id)[0] || '').toUpperCase() }}</div>
+        <div class="pmeta">
+          <div class="pn">{{ nameOf(p.id) }}</div>
+          <div class="cur" *ngIf="p.id===pov()">{{ t('current') }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

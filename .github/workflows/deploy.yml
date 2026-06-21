@@ -1,0 +1,56 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Inject Supabase config from secrets (optional)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ]; then
+            printf "export const environment = { production: true, supabaseUrl: '%s', supabaseAnonKey: '%s' };\n" "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > src/environments/environment.ts
+            echo "Injected Supabase config from repository secrets."
+          else
+            echo "No SUPABASE_URL secret set - building with committed src/environments/environment.ts."
+          fi
+      - run: npm ci
+      - name: Build (base-href = /<repo>/)
+        run: npm run build -- --base-href "/${{ github.event.repository.name }}/"
+      - name: SPA fallback + disable Jekyll
+        run: |
+          cp dist/family-tree/browser/index.html dist/family-tree/browser/404.html
+          touch dist/family-tree/browser/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/family-tree/browser
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

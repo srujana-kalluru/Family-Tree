@@ -1,0 +1,33 @@
+{
+  "name": "family-tree",
+  "version": "1.0.0",
+  "description": "Interactive family tree (Angular + Supabase), deployable to GitHub Pages. DB schema managed with Liquibase.",
+  "private": true,
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "db:update": "docker run --rm --env-file db/.env -v \"$PWD/db:/liquibase/changelog\" liquibase/liquibase:4.31 --searchPath=/liquibase/changelog --changeLogFile=changelog/db.changelog-master.yaml update",
+    "db:status": "docker run --rm --env-file db/.env -v \"$PWD/db:/liquibase/changelog\" liquibase/liquibase:4.31 --searchPath=/liquibase/changelog --changeLogFile=changelog/db.changelog-master.yaml status --verbose",
+    "db:sql": "docker run --rm --env-file db/.env -v \"$PWD/db:/liquibase/changelog\" liquibase/liquibase:4.31 --searchPath=/liquibase/changelog --changeLogFile=changelog/db.changelog-master.yaml update-sql",
+    "db:rollback": "docker run --rm --env-file db/.env -v \"$PWD/db:/liquibase/changelog\" liquibase/liquibase:4.31 --searchPath=/liquibase/changelog --changeLogFile=changelog/db.changelog-master.yaml rollback-count 1"
+  },
+  "dependencies": {
+    "@angular/common": "^19.2.0",
+    "@angular/compiler": "^19.2.0",
+    "@angular/core": "^19.2.0",
+    "@angular/forms": "^19.2.0",
+    "@angular/platform-browser": "^19.2.0",
+    "@supabase/supabase-js": "^2.45.4",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^19.2.0",
+    "@angular/cli": "^19.2.0",
+    "@angular/compiler-cli": "^19.2.0",
+    "typescript": "~5.7.2"
+  }
+}

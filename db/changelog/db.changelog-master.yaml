@@ -1,0 +1,40 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-schema
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/001-schema.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql: 'drop table if exists parent_child cascade'
+        - sql: 'drop table if exists marriage cascade'
+        - sql: 'drop table if exists person cascade'
+  - changeSet:
+      id: 002-rls
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/002-rls.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql: 'drop policy if exists "write parent_child" on parent_child'
+        - sql: 'drop policy if exists "write marriage" on marriage'
+        - sql: 'drop policy if exists "write person" on person'
+        - sql: 'drop policy if exists "read parent_child" on parent_child'
+        - sql: 'drop policy if exists "read marriage" on marriage'
+        - sql: 'drop policy if exists "read person" on person'
+        - sql: 'alter table parent_child disable row level security'
+        - sql: 'alter table marriage disable row level security'
+        - sql: 'alter table person disable row level security'
+  - changeSet:
+      id: 003-audit
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/003-audit.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql: 'alter table person drop column if exists created_by, drop column if exists created_by_email, drop column if exists created_at, drop column if exists updated_by, drop column if exists updated_by_email, drop column if exists updated_at'
+        - sql: 'alter table marriage drop column if exists created_by, drop column if exists created_by_email, drop column if exists created_at'
+        - sql: 'alter table parent_child drop column if exists created_by, drop column if exists created_by_email, drop column if exists created_at'

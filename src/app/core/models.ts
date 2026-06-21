@@ -1,0 +1,17 @@
+export interface Person {
+  id: number;
+  name: string;
+  created_by_email?: string | null;
+  updated_by_email?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+export interface Marriage { id: number; partner1_id: number; partner2_id: number; }
+export interface ParentChild { parent_id: number; child_id: number; }
+export interface TreeData { people: Person[]; marriages: Marriage[]; parentChild: ParentChild[]; }
+export type Lang = 'en' | 'te';
+export type NodeClass = 'pov' | 'main' | 'ext';
+export interface PositionedNode { id: number; x: number; y: number; size: number; cls: NodeClass; label: string; initials: string; }
+export interface Wire { x1: number; y1: number; x2: number; y2: number; main: boolean; }
+export interface BoxRect { x: number; y: number; w: number; h: number; }
+export interface TreeView { nodes: PositionedNode[]; wires: Wire[]; box: BoxRect | null; width: number; height: number; pos: Record<number, { x: number; y: number }>; }

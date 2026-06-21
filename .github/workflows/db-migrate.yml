@@ -1,0 +1,27 @@
+name: Database migrations (Liquibase)
+
+on:
+  push:
+    branches: [main]
+    paths: ['db/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Liquibase update
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/db:/liquibase/changelog" \
+            -e LIQUIBASE_COMMAND_URL="${{ secrets.LIQUIBASE_URL }}" \
+            -e LIQUIBASE_COMMAND_USERNAME="${{ secrets.LIQUIBASE_USERNAME }}" \
+            -e LIQUIBASE_COMMAND_PASSWORD="${{ secrets.LIQUIBASE_PASSWORD }}" \
+            liquibase/liquibase:4.31 \
+            --searchPath=/liquibase/changelog \
+            --changeLogFile=changelog/db.changelog-master.yaml \
+            update
