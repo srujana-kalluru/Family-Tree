@@ -19,7 +19,7 @@ type FormMode =
   | { type: 'edit'; id: number }
   | null;
 
-const USE_ELK = true;   // flip to false to revert to the custom layout engine
+const USE_ELK = false;   // flip to true to use the elkjs layout engine
 const EMPTY_VIEW: TreeView = { nodes: [], wires: [], box: null, width: 0, height: 0, pos: {} };
 
 @Component({
@@ -117,9 +117,13 @@ export class AppComponent implements OnInit, AfterViewInit {
     document.body.classList.toggle('te', this.lang() === 'te');
     await this.svc.load();
     const people = this.svc.data().people;
+    const valid = (id: number | null) => id != null && people.some(p => p.id === id);
+    let saved: number | null = null;
+    try { const s = localStorage.getItem('ft_pov'); saved = s != null ? +s : null; } catch { saved = null; }
     const def = this.svc.defaultPovId();
-    if (def != null && people.some(p => p.id === def)) this.pov.set(def);
-    else if (people.length && !people.some(p => p.id === this.pov())) this.pov.set(people[0].id);
+    if (valid(saved)) this.pov.set(saved!);            // keep the viewpoint the user last selected
+    else if (valid(def)) this.pov.set(def!);           // else the starred default
+    else if (people.length && !valid(this.pov())) this.pov.set(people[0].id);
   }
   ngAfterViewInit(): void {
     const el = this.stageRef.nativeElement;
@@ -150,7 +154,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   childrenOf(id: number) { return this.graph().children(id); }
   relWord(rel: Relation): string { return this.t(rel === 'spouse' ? 'spouseLabel' : 'childLabel'); }
 
-  setPov(id: number): void { this.pov.set(id); setTimeout(() => this.centerOn(id), 0); }
+  setPov(id: number): void { this.pov.set(id); try { localStorage.setItem('ft_pov', String(id)); } catch { /* storage unavailable */ } setTimeout(() => this.centerOn(id), 0); }
   onNodeClick(id: number): void { if (this.clickTimer) clearTimeout(this.clickTimer); this.clickTimer = setTimeout(() => this.setPov(id), 220); }
   onNodeDbl(id: number): void { if (this.clickTimer) clearTimeout(this.clickTimer); if (this.svc.canEdit()) this.openEdit(id); }
 
