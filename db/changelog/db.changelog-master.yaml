@@ -80,3 +80,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
       rollback:
         - sql: 'alter table person drop column if exists gender'
+  - changeSet:
+      id: 008-audit-name
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/008-audit-name.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql: 'alter table person drop column if exists created_by_name, drop column if exists updated_by_name'

@@ -151,6 +151,13 @@ input[type=text]:focus,input[type=password]:focus{outline:none;border-color:var(
 .connperson{display:flex;flex-direction:column;align-items:center;gap:5px;width:62px}
 .connname{font-size:11.5px;font-weight:500;text-align:center;line-height:1.15;color:var(--text);max-width:62px}
 .connlink{align-self:center;margin-top:12px;font-size:10.5px;font-weight:600;color:var(--accent);background:rgba(0,103,214,.12);padding:2px 8px;border-radius:980px;white-space:nowrap}
+.connsegscroll{overflow:auto;max-height:340px;margin-top:12px;padding:6px 0}
+.connsegwrap{position:relative;margin:0 auto}
+.connsegwires{position:absolute;inset:0;pointer-events:none}
+.connsegnode{position:absolute;width:40px;height:40px;transform:translate(-50%,-50%)}
+.connsegnode .pav{width:40px;height:40px;font-size:15px}
+.connsegnode .connname{position:absolute;top:44px;left:50%;transform:translateX(-50%);white-space:nowrap;max-width:none;font-size:11.5px}
+.connsegnode.end .pav{box-shadow:0 0 0 3px var(--accent),0 2px 6px rgba(20,28,50,.16)}
 .pmeta{flex:1;min-width:0}
 .pmeta .pn{font-weight:500;font-size:14.5px;letter-spacing:-.01em}
 .pmeta .pl{color:var(--text3);font-weight:400}

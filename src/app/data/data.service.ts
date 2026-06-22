@@ -5,7 +5,8 @@ import { TreeData, Person, Marriage, ParentChild } from '../core/models';
 
 type Relation = 'spouse' | 'child';
 type Gender = 'male' | 'female' | null;
-const SELECT = 'id,first_name,last_name,photo_url,gender,created_by_email,updated_by_email,created_at,updated_at';
+const SELECT = 'id,first_name,last_name,photo_url,gender,created_by_name,updated_by_name,created_by_email,updated_by_email,created_at,updated_at';
+const SELECT_FALLBACK = 'id,first_name,last_name,photo_url,gender,created_by_email,updated_by_email,created_at,updated_at';
 const EMPTY: TreeData = { people: [], marriages: [], parentChild: [] };
 
 @Injectable({ providedIn: 'root' })
@@ -15,6 +16,7 @@ export class DataService {
   readonly ready = signal(false);
   readonly signedIn = signal(false);
   readonly userEmail = signal<string | null>(null);
+  readonly userName = signal<string | null>(null);
   readonly userPhoto = signal<string | null>(null);
   readonly userId = signal<string | null>(null);
   readonly lastError = signal<string | null>(null);
@@ -36,6 +38,7 @@ export class DataService {
     this.userEmail.set(session?.user?.email ?? null);
     this.userId.set(session?.user?.id ?? null);
     const meta = session?.user?.user_metadata ?? {};
+    this.userName.set((meta['full_name'] as string) ?? (meta['name'] as string) ?? session?.user?.email ?? null);
     this.userPhoto.set((meta['avatar_url'] as string) ?? (meta['picture'] as string) ?? null);
   }
 
@@ -50,11 +53,16 @@ export class DataService {
   }
   async signOut(): Promise<void> { await this.client?.auth.signOut(); }
 
+  /** Select people, falling back to the pre-name-column schema so an un-migrated DB still loads (showing emails). */
+  private async selectPeople() {
+    const r = await this.client!.from('person').select(SELECT).order('id');
+    return r.error ? this.client!.from('person').select(SELECT_FALLBACK).order('id') : r;
+  }
   async load(): Promise<void> {
     if (!this.client) { this.data.set({ ...EMPTY }); this.ready.set(true); return; }
     try {
       const [pp, mm, pc] = await Promise.all([
-        this.client.from('person').select(SELECT).order('id'),
+        this.selectPeople(),
         this.client.from('marriage').select('id,partner1_id,partner2_id').order('id'),
         this.client.from('parent_child').select('parent_id,child_id'),
       ]);
@@ -93,8 +101,8 @@ export class DataService {
   private nextMarriageId(): number { const ids = this.data().marriages.map(m => m.id); return (ids.length ? Math.max(...ids) : 0) + 1; }
   /** Optimistic audit for instant display; the DB fills created_* via column defaults, the app sends updated_*. */
   private stamp(p: Person): Person {
-    const email = this.userEmail(); const now = new Date().toISOString();
-    return { ...p, created_by_email: email, updated_by_email: email, created_at: now, updated_at: now };
+    const email = this.userEmail(); const name = this.userName(); const now = new Date().toISOString();
+    return { ...p, created_by_name: name, updated_by_name: name, created_by_email: email, updated_by_email: email, created_at: now, updated_at: now };
   }
   private linkLocal(d: TreeData, relation: Relation, anchorId: number, id: number, coParentId: number | null = null): void {
     if (relation === 'spouse') d.marriages.push({ id: this.nextMarriageId(), partner1_id: anchorId, partner2_id: id });
@@ -159,9 +167,11 @@ export class DataService {
 
   async rename(id: number, first: string, last: string | null, photo: string | null, gender: Gender): Promise<void> {
     if (!this.client) return;
-    const email = this.userEmail(); const now = new Date().toISOString();
-    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.first_name = first; p.last_name = last; p.photo_url = photo; p.gender = gender; p.updated_by_email = email; p.updated_at = now; } });
-    const { error } = await this.client.from('person').update({ first_name: first, last_name: last, photo_url: photo, gender, updated_by: this.userId(), updated_by_email: email, updated_at: now }).eq('id', id);
+    const email = this.userEmail(); const name = this.userName(); const now = new Date().toISOString();
+    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.first_name = first; p.last_name = last; p.photo_url = photo; p.gender = gender; p.updated_by_name = name; p.updated_by_email = email; p.updated_at = now; } });
+    const base = { first_name: first, last_name: last, photo_url: photo, gender, updated_by: this.userId(), updated_by_email: email, updated_at: now };
+    let { error } = await this.client.from('person').update({ ...base, updated_by_name: name }).eq('id', id);
+    if (error) ({ error } = await this.client.from('person').update(base).eq('id', id));   // pre-migration fallback (no name column yet)
     if (error) { this.fail(error); await this.load(); }
   }
   async deletePerson(id: number): Promise<void> {

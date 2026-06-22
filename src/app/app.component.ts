@@ -6,7 +6,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from './data/data.service';
 import { TreeGraph } from './core/tree-graph';
-import { buildView, AV, NODE_W } from './core/layout';
+import { buildView, connectionSegment, AV, NODE_W } from './core/layout';
 import { buildViewElk } from './core/layout-elk';
 import { Lang, Person, TreeView, Wire } from './core/models';
 import { dispName } from './core/translit';
@@ -85,6 +85,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     const a = this.connA(), b = this.connB();
     return a != null && b != null ? this.graph().connectionPaths(a, b) : [];
   });
+  /** The connecting people laid out as a small tree segment for the connection panel. */
+  connSeg = computed(() => connectionSegment(this.graph(), this.connPaths()));
   /** The hovered person's whole branch: their ancestors, descendants, self and spouse(s). */
   branchSet = computed(() => {
     const h = this.highlight();
@@ -139,7 +141,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   private maybeInitialFit(): void {
     if (this.fitted || !this.stageRef || !this.view().nodes.length) return;
     this.fitted = true;
-    setTimeout(() => this.fitView(1.3), 0);   // initial load starts 30% more zoomed-in than fit-to-screen
+    setTimeout(() => this.fitView(1.95), 0);   // initial load starts ~95% more zoomed-in than fit-to-screen (1.3 x 1.5)
   }
 
   async ngOnInit(): Promise<void> {
@@ -158,7 +160,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const el = this.stageRef.nativeElement;
     el.addEventListener('wheel', this.onWheel, { passive: false });
     el.addEventListener('touchmove', this.onTouchMove, { passive: false });
-    setTimeout(() => this.fitView(1.3), 0);   // initial load starts 30% more zoomed-in than fit-to-screen
+    setTimeout(() => this.fitView(1.95), 0);   // initial load starts ~95% more zoomed-in than fit-to-screen (1.3 x 1.5)
   }
 
   t(k: string): string { return tr(k, this.lang()); }

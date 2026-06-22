@@ -258,3 +258,64 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
 
   return { nodes, wires, box, width, height, pos };
 }
+
+export interface ConnSeg { nodes: { id: number; x: number; y: number }[]; wires: { x1: number; y1: number; x2: number; y2: number }[]; width: number; height: number; r: number; }
+
+/**
+ * Lay out just the people on the connection path(s) as a small generational tree segment for the connection panel:
+ * generation decides the row (parents above, children below, spouses level), a light barycentre sweep sets columns,
+ * and consecutive path members are joined with the same orthogonal connectors the main tree uses.
+ */
+export function connectionSegment(graph: TreeGraph, paths: number[][]): ConnSeg | null {
+  const people = new Set<number>();
+  paths.forEach(p => p.forEach(id => people.add(id)));
+  if (people.size < 2) return null;
+  const ids = [...people];
+  const start = paths[0][0];
+
+  const adj = new Map<number, { to: number; rel: 'up' | 'down' | 'same' }[]>();
+  const rel = (u: number, v: number): 'up' | 'down' | 'same' =>
+    graph.parents(u).some(p => p.id === v) ? 'up' : graph.children(u).some(c => c.id === v) ? 'down' : 'same';
+  const link = (u: number, v: number) => { const a = adj.get(u) ?? []; a.push({ to: v, rel: rel(u, v) }); adj.set(u, a); };
+  paths.forEach(p => { for (let i = 0; i < p.length - 1; i++) { link(p[i], p[i + 1]); link(p[i + 1], p[i]); } });
+
+  const level = new Map<number, number>([[start, 0]]);
+  const q = [start];
+  while (q.length) { const u = q.shift()!; (adj.get(u) ?? []).forEach(({ to, rel: r }) => { if (level.has(to)) return; level.set(to, level.get(u)! + (r === 'up' ? -1 : r === 'down' ? 1 : 0)); q.push(to); }); }
+  ids.forEach(id => { if (!level.has(id)) level.set(id, 0); });
+
+  const minL = Math.min(...ids.map(id => level.get(id)!));
+  const byLevel = new Map<number, number[]>();
+  ids.forEach(id => { const l = level.get(id)! - minL; const a = byLevel.get(l) ?? []; a.push(id); byLevel.set(l, a); });
+  const levels = [...byLevel.keys()].sort((a, b) => a - b);
+
+  const x = new Map<number, number>();
+  byLevel.forEach(arr => arr.forEach((id, i) => x.set(id, i)));
+  for (let pass = 0; pass < 8; pass++) {                                  // barycentre + repack, re-centred each pass so it doesn't drift
+    levels.forEach(l => {
+      const arr = byLevel.get(l)!;
+      const tgt = new Map<number, number>();
+      arr.forEach(id => { const nb = (adj.get(id) ?? []).map(e => x.get(e.to)!); tgt.set(id, nb.length ? nb.reduce((a, b) => a + b, 0) / nb.length : x.get(id)!); });
+      arr.sort((a, b) => tgt.get(a)! - tgt.get(b)!);
+      arr.forEach((id, i) => x.set(id, i === 0 ? tgt.get(id)! : Math.max(tgt.get(id)!, x.get(arr[i - 1])! + 1)));
+    });
+    const mean = ids.reduce((s, id) => s + x.get(id)!, 0) / ids.length;
+    ids.forEach(id => x.set(id, x.get(id)! - mean));
+  }
+
+  const COL = 94, ROW = 104, R = 20, PADX = 30, PADT = 26, PADB = 34;
+  const minX = Math.min(...ids.map(id => x.get(id)!));
+  const px = (id: number) => PADX + R + (x.get(id)! - minX) * COL;
+  const py = (id: number) => PADT + R + (level.get(id)! - minL) * ROW;
+  const nodes = ids.map(id => ({ id, x: px(id), y: py(id) }));
+  const seen = new Set<string>();
+  const wires: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  paths.forEach(p => { for (let i = 0; i < p.length - 1; i++) {
+    const u = p[i], v = p[i + 1], k = u < v ? `${u}-${v}` : `${v}-${u}`; if (seen.has(k)) continue; seen.add(k);
+    const ux = px(u), uy = py(u), vx = px(v), vy = py(v);
+    if (Math.abs(uy - vy) < 1) wires.push({ x1: ux, y1: uy, x2: vx, y2: vy });                                  // spouses: straight
+    else { const my = (uy + vy) / 2; wires.push({ x1: ux, y1: uy, x2: ux, y2: my }, { x1: ux, y1: my, x2: vx, y2: my }, { x1: vx, y1: my, x2: vx, y2: vy }); }   // parent-child: elbow
+  }});
+  const maxX = Math.max(...nodes.map(n => n.x)), maxY = Math.max(...nodes.map(n => n.y));
+  return { nodes, wires, width: maxX + R + PADX, height: maxY + R + PADB, r: R };
+}

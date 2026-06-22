@@ -4,6 +4,8 @@ export interface Person {
   last_name?: string | null;
   photo_url?: string | null;
   gender?: 'male' | 'female' | null;
+  created_by_name?: string | null;
+  updated_by_name?: string | null;
   created_by_email?: string | null;
   updated_by_email?: string | null;
   created_at?: string | null;

@@ -173,8 +173,8 @@
       </div>
 
       <div class="audit" *ngIf="byId(editId()) as p">
-        <span *ngIf="p.created_by_email"><b>{{ t('addedBy') }}</b> {{ p.created_by_email }}</span>
-        <span *ngIf="p.updated_by_email && (p.updated_by_email !== p.created_by_email || p.updated_at !== p.created_at)"> · <b>{{ t('modifiedBy') }}</b> {{ p.updated_by_email }}</span>
+        <span *ngIf="p.created_by_name || p.created_by_email"><b>{{ t('addedBy') }}</b> {{ p.created_by_name || p.created_by_email }}</span>
+        <span *ngIf="(p.updated_by_name || p.updated_by_email) && (p.updated_by_email !== p.created_by_email || p.updated_at !== p.created_at)"> · <b>{{ t('modifiedBy') }}</b> {{ p.updated_by_name || p.updated_by_email }}</span>
       </div>
 
       <button class="dangerlink" [class.armed]="delArmed()" (click)="confirmDelete()">{{ delArmed() ? t('confirmDelete') : t('deletePerson') }}</button>
@@ -224,17 +224,21 @@
 
     <div *ngIf="!connPick() && connA()!=null && connB()!=null">
       <div class="relnote" *ngIf="!connPaths().length">{{ t('noConnection') }}</div>
-      <div class="connpath" *ngFor="let path of connPaths()">
-        <ng-container *ngFor="let id of path; let i = index">
-          <div class="connperson">
-            <div class="pav" [style.background]="photoOf(id) ? 'none' : grad(id)">
-              <img *ngIf="photoOf(id)" [src]="photoOf(id)" alt="" />
-              <span *ngIf="!photoOf(id)">{{ (nameOf(id)[0] || '').toUpperCase() }}</span>
+      <div class="connsegscroll" *ngIf="connSeg() as s">
+        <div class="connsegwrap" [style.width.px]="s.width" [style.height.px]="s.height">
+          <svg class="connsegwires" [attr.width]="s.width" [attr.height]="s.height">
+            <line *ngFor="let w of s.wires" [attr.x1]="w.x1" [attr.y1]="w.y1" [attr.x2]="w.x2" [attr.y2]="w.y2"
+                  stroke="var(--main)" stroke-width="2.4" stroke-linecap="round"></line>
+          </svg>
+          <div class="connsegnode" *ngFor="let n of s.nodes" [style.left.px]="n.x" [style.top.px]="n.y"
+               [class.end]="n.id===connA() || n.id===connB()">
+            <div class="pav" [style.background]="photoOf(n.id) ? 'none' : grad(n.id)">
+              <img *ngIf="photoOf(n.id)" [src]="photoOf(n.id)" alt="" />
+              <span *ngIf="!photoOf(n.id)">{{ (nameOf(n.id)[0] || '').toUpperCase() }}</span>
             </div>
-            <span class="connname">{{ nameOf(id) }}</span>
+            <span class="connname">{{ nameOf(n.id) }}</span>
           </div>
-          <span class="connlink" *ngIf="i < path.length - 1">{{ linkLabel(id, path[i + 1]) }}</span>
-        </ng-container>
+        </div>
       </div>
     </div>
 
