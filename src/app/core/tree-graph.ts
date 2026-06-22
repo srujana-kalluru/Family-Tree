@@ -29,6 +29,36 @@ export class TreeGraph {
     }
     return out;
   }
+  /** All shortest relationship paths (lists of person ids) between two people over parent/child/spouse edges. */
+  connectionPaths(aId: number, bId: number): number[][] {
+    if (aId === bId) return [[aId]];
+    const neighbors = (id: number): number[] => {
+      const out: number[] = [];
+      this.parents(id).forEach(p => out.push(p.id));
+      this.children(id).forEach(c => out.push(c.id));
+      this.spouses(id).forEach(s => out.push(s.id));
+      return out;
+    };
+    const dist = new Map<number, number>([[aId, 0]]);
+    const preds = new Map<number, number[]>();
+    const q: number[] = [aId];
+    while (q.length) {
+      const u = q.shift()!; const du = dist.get(u)!;
+      for (const v of neighbors(u)) {
+        if (!dist.has(v)) { dist.set(v, du + 1); preds.set(v, [u]); q.push(v); }
+        else if (dist.get(v) === du + 1) { preds.get(v)!.push(u); }
+      }
+    }
+    if (!dist.has(bId)) return [];
+    const paths: number[][] = [];
+    const build = (node: number, acc: number[]) => {
+      if (paths.length >= 12) return;   // cap to avoid blow-up in densely-connected trees
+      if (node === aId) { paths.push([aId, ...acc]); return; }
+      (preds.get(node) ?? []).forEach(p => build(p, [node, ...acc]));
+    };
+    build(bId, []);
+    return paths;
+  }
   /** All ancestors of a person (cycle-safe). Used to forbid a parent-child link that would loop. */
   ancestors(id: number): Set<number> {
     const out = new Set<number>();

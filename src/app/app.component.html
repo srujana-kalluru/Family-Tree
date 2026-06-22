@@ -11,6 +11,7 @@
   <div class="spacer"></div>
   <ng-container *ngIf="svc.signedIn()">
     <button class="hbtn" (click)="openPov()" *ngIf="view().nodes.length"><span class="who">{{ t('viewpoint') }}</span> <b>{{ nameOf(pov()) }}</b></button>
+    <button class="hbtn" (click)="openConn()" *ngIf="view().nodes.length">{{ t('connection') }}</button>
     <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="addPersonBtn()">+ <span>{{ t('addPerson') }}</span></button>
     <button class="hbtn" (click)="signOut()" [title]="svc.userEmail() || ''">{{ t('signOut') }}</button>
     <div class="seg">
@@ -199,6 +200,46 @@
                 [title]="isDefaultPov(p.id) ? t('defaultViewpoint') : t('setDefault')">{{ isDefaultPov(p.id) ? '★' : '☆' }}</button>
         <span class="starbtn on" *ngIf="!svc.canEdit() && isDefaultPov(p.id)" [title]="t('defaultViewpoint')">★</span>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" *ngIf="connOpen()" (click)="onScrim($event, 'conn')">
+  <div class="modal">
+    <h2>{{ t('connTitle') }}</h2>
+    <div class="connslots">
+      <button class="connslot" [class.on]="connPick()==='a'" (click)="startConnPick('a')">{{ connA()!=null ? nameOf(connA()!) : t('selectPerson') }}</button>
+      <span class="connamp">&amp;</span>
+      <button class="connslot" [class.on]="connPick()==='b'" (click)="startConnPick('b')">{{ connB()!=null ? nameOf(connB()!) : t('selectPerson') }}</button>
+    </div>
+
+    <div *ngIf="connPick()">
+      <div class="search"><input type="text" [ngModel]="connQuery()" (ngModelChange)="connQuery.set($event)" [placeholder]="t('searchName')" [attr.aria-label]="t('searchName')" autocomplete="off" /></div>
+      <div class="plist">
+        <div class="pitem" *ngFor="let p of connCandidates()" role="button" tabindex="0" (click)="pickConn(p.id)" (keydown.enter)="pickConn(p.id)">
+          <ng-container *ngTemplateOutlet="personRow; context: { $implicit: p }"></ng-container>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="!connPick() && connA()!=null && connB()!=null">
+      <div class="relnote" *ngIf="!connPaths().length">{{ t('noConnection') }}</div>
+      <div class="connpath" *ngFor="let path of connPaths()">
+        <ng-container *ngFor="let id of path; let i = index">
+          <div class="connperson">
+            <div class="pav" [style.background]="photoOf(id) ? 'none' : grad(id)">
+              <img *ngIf="photoOf(id)" [src]="photoOf(id)" alt="" />
+              <span *ngIf="!photoOf(id)">{{ (nameOf(id)[0] || '').toUpperCase() }}</span>
+            </div>
+            <span class="connname">{{ nameOf(id) }}</span>
+          </div>
+          <span class="connlink" *ngIf="i < path.length - 1">{{ linkLabel(id, path[i + 1]) }}</span>
+        </ng-container>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn cancel" (click)="closeConn()">{{ t('cancel') }}</button>
     </div>
   </div>
 </div>

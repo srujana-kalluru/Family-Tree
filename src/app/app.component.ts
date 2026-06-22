@@ -49,6 +49,11 @@ export class AppComponent implements OnInit, AfterViewInit {
   delArmed = signal(false);
   povOpen = signal(false);
   povQuery = signal('');
+  connOpen = signal(false);
+  connA = signal<number | null>(null);
+  connB = signal<number | null>(null);
+  connPick = signal<'a' | 'b' | null>(null);
+  connQuery = signal('');
 
   graph = computed(() => new TreeGraph(this.svc.data()));
   view = signal<TreeView>(EMPTY_VIEW);
@@ -73,6 +78,11 @@ export class AppComponent implements OnInit, AfterViewInit {
   anchorSpouses = computed(() => {
     const m = this.formMode();
     return m && m.type === 'add' && m.relation === 'child' ? this.graph().spouses(m.anchor) : [];
+  });
+  connCandidates = computed(() => this.connPick() ? this.matchSort(this.svc.data().people, this.connQuery().toLowerCase()) : []);
+  connPaths = computed(() => {
+    const a = this.connA(), b = this.connB();
+    return a != null && b != null ? this.graph().connectionPaths(a, b) : [];
   });
   /** Case-insensitive name search + first-name sort, shared by the viewpoint and link pickers. */
   private matchSort(people: Person[], q: string): Person[] {
@@ -154,7 +164,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.panX.set(this.opx + (e.clientX - this.sx)); this.panY.set(this.opy + (e.clientY - this.sy));
   }
   @HostListener('window:mouseup') onUp(): void { this.dragging = false; this.stageRef?.nativeElement.classList.remove('grabbing'); }
-  @HostListener('window:keydown.escape') onEsc(): void { this.formOpen.set(false); this.povOpen.set(false); }
+  @HostListener('window:keydown.escape') onEsc(): void { this.formOpen.set(false); this.povOpen.set(false); this.closeConn(); }
 
   onWheel = (e: WheelEvent): void => {
     e.preventDefault();
@@ -211,9 +221,11 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.fPhoto.set(p?.photo_url ?? null); this.fGender.set(p?.gender ?? null); this.delArmed.set(false); this.formOpen.set(true); }
   closeForm(): void { this.formOpen.set(false); this.formMode.set(null); }
-  onScrim(e: MouseEvent, which: 'form' | 'pov'): void {
+  onScrim(e: MouseEvent, which: 'form' | 'pov' | 'conn'): void {
     if (e.target !== e.currentTarget) return;
-    if (which === 'form') this.closeForm(); else this.povOpen.set(false);
+    if (which === 'form') this.closeForm();
+    else if (which === 'pov') this.povOpen.set(false);
+    else this.closeConn();
   }
 
   async save(): Promise<void> {
@@ -247,6 +259,23 @@ export class AppComponent implements OnInit, AfterViewInit {
   async setDefaultPov(id: number): Promise<void> { await this.svc.setDefaultPov(id); }
   /** The starred viewpoint: the explicitly-set default, else the first-created person. */
   isDefaultPov(id: number): boolean { const d = this.svc.defaultPovId(); return (d != null ? d : this.svc.data().people[0]?.id) === id; }
+
+  openConn(): void { this.connOpen.set(true); this.connA.set(null); this.connB.set(null); this.connPick.set('a'); this.connQuery.set(''); }
+  closeConn(): void { this.connOpen.set(false); this.connPick.set(null); }
+  startConnPick(slot: 'a' | 'b'): void { this.connPick.set(slot); this.connQuery.set(''); }
+  pickConn(id: number): void { (this.connPick() === 'a' ? this.connA : this.connB).set(id); this.connPick.set(null); this.connQuery.set(''); }
+  /** Relationship word for `to` as seen from `from` (gendered when known). */
+  linkLabel(from: number, to: number): string {
+    const g = this.graph();
+    if (g.parents(from).some(p => p.id === to)) return this.gw(to, 'father', 'mother', 'parentRel');
+    if (g.children(from).some(c => c.id === to)) return this.gw(to, 'son', 'daughter', 'childRel');
+    if (g.spouses(from).some(s => s.id === to)) return this.gw(to, 'husband', 'wife', 'spouseRel');
+    return '';
+  }
+  private gw(id: number, male: string, female: string, neutral: string): string {
+    const gn = this.byId(id)?.gender;
+    return this.t(gn === 'male' ? male : gn === 'female' ? female : neutral);
+  }
   switchLang(l: Lang): void { this.lang.set(l); document.body.classList.toggle('te', l === 'te'); setTimeout(() => this.centerOn(this.pov()), 0); }
 
   async signInGoogle(): Promise<void> { await this.svc.signInWithGoogle(); }
