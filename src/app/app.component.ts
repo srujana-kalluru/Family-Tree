@@ -101,7 +101,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       .sort((a, b) => dispName(a.first_name, this.lang()).localeCompare(dispName(b.first_name, this.lang())));
   }
 
-  private dragging = false; private sx = 0; private sy = 0; private opx = 0; private opy = 0;
+  private dragging = false; private sx = 0; private sy = 0; private opx = 0; private opy = 0; private pinch = 0;
   private clickTimer: ReturnType<typeof setTimeout> | null = null;
   private palettes = [
     ['#5e9eff', '#3d82f0'], ['#34c759', '#28a64a'], ['#ff9f0a', '#f08800'], ['#ff476f', '#e82f59'],
@@ -183,20 +183,20 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   onWheel = (e: WheelEvent): void => {
     e.preventDefault();
-    if (e.ctrlKey) return;   // pinch-zoom gesture: ignored - zoom only via the +/- buttons
-    this.panX.update(x => x - e.deltaX);
-    this.panY.update(y => y - e.deltaY);
+    if (e.ctrlKey) this.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));   // pinch (fingers toward/away) -> zoom at the cursor
+    else { this.panX.update(x => x - e.deltaX); this.panY.update(y => y - e.deltaY); }   // two-finger swipe -> pan
   };
   onTouchStart(e: TouchEvent): void {
     if ((e.target as HTMLElement).closest('.node')) return;
     if (e.touches.length === 1) { this.dragging = true; this.sx = e.touches[0].clientX; this.sy = e.touches[0].clientY; this.opx = this.panX(); this.opy = this.panY(); }
-    else if (e.touches.length === 2) { this.dragging = false; this.sx = (e.touches[0].clientX + e.touches[1].clientX) / 2; this.sy = (e.touches[0].clientY + e.touches[1].clientY) / 2; this.opx = this.panX(); this.opy = this.panY(); }
+    else if (e.touches.length === 2) { this.dragging = false; this.pinch = this.dist(e); }
   }
   onTouchMove = (e: TouchEvent): void => {
     if (e.touches.length === 1 && this.dragging) { this.panX.set(this.opx + (e.touches[0].clientX - this.sx)); this.panY.set(this.opy + (e.touches[0].clientY - this.sy)); e.preventDefault(); }
-    else if (e.touches.length === 2) { const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2, my = (e.touches[0].clientY + e.touches[1].clientY) / 2; this.panX.set(this.opx + (mx - this.sx)); this.panY.set(this.opy + (my - this.sy)); e.preventDefault(); }
+    else if (e.touches.length === 2) { const d = this.dist(e); const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2, my = (e.touches[0].clientY + e.touches[1].clientY) / 2; if (this.pinch) this.zoomAt(mx, my, d / this.pinch); this.pinch = d; e.preventDefault(); }
   };
   onTouchEnd(): void { this.dragging = false; }
+  private dist(e: TouchEvent): number { return Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
 
   zoomAt(clientX: number, clientY: number, factor: number): void {
     const st = this.stageRef.nativeElement.getBoundingClientRect();

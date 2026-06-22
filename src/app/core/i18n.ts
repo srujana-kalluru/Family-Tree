@@ -64,7 +64,7 @@ const M: Record<string, Record<Lang, string>> = {
   confirmDelete: { en: 'Tap again to confirm', te: 'నిర్ధారించడానికి మళ్ళీ నొక్కండి' },
   noLinks: { en: 'No relationships yet.', te: 'ఇంకా సంబంధాలు లేవు.' },
   siblingsNote: { en: 'Siblings come from shared parents.', te: 'తోబుట్టువులు ఉమ్మడి తల్లిదండ్రుల నుండి వస్తాయి.' },
-  panHint: { en: 'Drag or two-finger scroll to pan. Double-click a face to edit.', te: 'జరపడానికి లాగండి లేదా రెండు వేళ్లతో స్క్రోల్ చేయండి. మార్చడానికి డబుల్-క్లిక్ చేయండి.' },
+  panHint: { en: 'Two-finger scroll to pan, pinch to zoom. Double-click a face to edit.', te: 'జరపడానికి రెండు వేళ్లతో స్క్రోల్ చేయండి, జూమ్ కోసం పించ్ చేయండి. మార్చడానికి డబుల్-క్లిక్ చేయండి.' },
   fit: { en: 'Fit', te: 'అమర్చు' },
   offline: { en: 'Supabase not configured', te: 'Supabase సెటప్ కాలేదు' },
   signInGoogle: { en: 'Sign in with Google', te: 'Google తో సైన్ ఇన్' },
