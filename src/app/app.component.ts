@@ -1,13 +1,14 @@
 import {
   AfterViewInit, Component, ElementRef, HostListener, OnInit, ViewChild,
-  ViewEncapsulation, computed, signal,
+  ViewEncapsulation, computed, effect, signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from './data/data.service';
 import { TreeGraph } from './core/tree-graph';
 import { buildView, AV, NODE_W } from './core/layout';
-import { Lang, Person } from './core/models';
+import { buildViewElk } from './core/layout-elk';
+import { Lang, Person, TreeView } from './core/models';
 import { dispName } from './core/translit';
 import { tr } from './core/i18n';
 
@@ -17,6 +18,9 @@ type FormMode =
   | { type: 'addRoot' }
   | { type: 'edit'; id: number }
   | null;
+
+const USE_ELK = true;   // flip to false to revert to the custom layout engine
+const EMPTY_VIEW: TreeView = { nodes: [], wires: [], box: null, width: 0, height: 0, pos: {} };
 
 @Component({
   selector: 'app-root',
@@ -40,12 +44,13 @@ export class AppComponent implements OnInit, AfterViewInit {
   addExisting = signal(false);
   linkQuery = signal('');
   coParent = signal<number | null>(null);
+  fPhoto = signal<string | null>(null);
   delArmed = signal(false);
   povOpen = signal(false);
   povQuery = signal('');
 
   graph = computed(() => new TreeGraph(this.svc.data()));
-  view = computed(() => buildView(this.graph(), this.pov(), this.lang()));
+  view = signal<TreeView>(EMPTY_VIEW);
   transform = computed(() => `translate(${this.panX()}px, ${this.panY()}px) scale(${this.scale()})`);
   isAdd = computed(() => this.formMode()?.type === 'add');
   isRoot = computed(() => this.formMode()?.type === 'addRoot');
@@ -77,20 +82,33 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   private dragging = false; private sx = 0; private sy = 0; private opx = 0; private opy = 0;
   private clickTimer: ReturnType<typeof setTimeout> | null = null;
-  private pinch = 0;
   private palettes = [
     ['#5e9eff', '#3d82f0'], ['#34c759', '#28a64a'], ['#ff9f0a', '#f08800'], ['#ff476f', '#e82f59'],
     ['#af52de', '#9a3fc8'], ['#30bcd6', '#1fa7c0'], ['#ff7a5a', '#f25c3a'], ['#7d8a9c', '#69768a'],
   ];
 
-  constructor(public svc: DataService) {}
+  constructor(public svc: DataService) {
+    effect(() => {
+      const g = this.graph(), p = this.pov(), l = this.lang();
+      const apply = (v: TreeView) => { this.view.set(v); this.maybeInitialFit(); };
+      if (USE_ELK) buildViewElk(g, p, l).then(apply).catch(() => apply(buildView(g, p, l)));
+      else apply(buildView(g, p, l));
+    });
+  }
+  private fitted = false;
+  private maybeInitialFit(): void {
+    if (this.fitted || !this.stageRef || !this.view().nodes.length) return;
+    this.fitted = true;
+    setTimeout(() => this.fitView(), 0);
+  }
 
   async ngOnInit(): Promise<void> {
     document.body.classList.toggle('te', this.lang() === 'te');
     await this.svc.load();
     const people = this.svc.data().people;
-    if (people.length && !people.some(p => p.id === this.pov())) this.pov.set(people[0].id);
-    setTimeout(() => this.fitView(), 0);
+    const def = this.svc.defaultPovId();
+    if (def != null && people.some(p => p.id === def)) this.pov.set(def);
+    else if (people.length && !people.some(p => p.id === this.pov())) this.pov.set(people[0].id);
   }
   ngAfterViewInit(): void {
     const el = this.stageRef.nativeElement;
@@ -103,6 +121,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   byId(id: number): Person | undefined { return this.graph().byId(id); }
   nameOf(id: number): string { const p = this.byId(id); return p ? dispName(p.first_name, this.lang()) : ''; }
   lastNameOf(id: number): string { const p = this.byId(id); return p?.last_name ? dispName(p.last_name, this.lang()) : ''; }
+  photoOf(id: number): string | null { return this.byId(id)?.photo_url ?? null; }
   round(n: number): number { return Math.round(n); }
   grad(id: number): string {
     let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -136,18 +155,22 @@ export class AppComponent implements OnInit, AfterViewInit {
   @HostListener('window:mouseup') onUp(): void { this.dragging = false; this.stageRef?.nativeElement.classList.remove('grabbing'); }
   @HostListener('window:keydown.escape') onEsc(): void { this.formOpen.set(false); this.povOpen.set(false); }
 
-  onWheel = (e: WheelEvent): void => { e.preventDefault(); this.zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 0.89); };
+  onWheel = (e: WheelEvent): void => {
+    e.preventDefault();
+    if (e.ctrlKey) return;   // pinch-zoom gesture: ignored - zoom only via the +/- buttons
+    this.panX.update(x => x - e.deltaX);
+    this.panY.update(y => y - e.deltaY);
+  };
   onTouchStart(e: TouchEvent): void {
     if ((e.target as HTMLElement).closest('.node')) return;
     if (e.touches.length === 1) { this.dragging = true; this.sx = e.touches[0].clientX; this.sy = e.touches[0].clientY; this.opx = this.panX(); this.opy = this.panY(); }
-    else if (e.touches.length === 2) { this.dragging = false; this.pinch = this.dist(e); }
+    else if (e.touches.length === 2) { this.dragging = false; this.sx = (e.touches[0].clientX + e.touches[1].clientX) / 2; this.sy = (e.touches[0].clientY + e.touches[1].clientY) / 2; this.opx = this.panX(); this.opy = this.panY(); }
   }
   onTouchMove = (e: TouchEvent): void => {
     if (e.touches.length === 1 && this.dragging) { this.panX.set(this.opx + (e.touches[0].clientX - this.sx)); this.panY.set(this.opy + (e.touches[0].clientY - this.sy)); e.preventDefault(); }
-    else if (e.touches.length === 2) { const d = this.dist(e); const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2, my = (e.touches[0].clientY + e.touches[1].clientY) / 2; if (this.pinch) this.zoomAt(mx, my, d / this.pinch); this.pinch = d; e.preventDefault(); }
+    else if (e.touches.length === 2) { const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2, my = (e.touches[0].clientY + e.touches[1].clientY) / 2; this.panX.set(this.opx + (mx - this.sx)); this.panY.set(this.opy + (my - this.sy)); e.preventDefault(); }
   };
   onTouchEnd(): void { this.dragging = false; }
-  private dist(e: TouchEvent): number { return Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
 
   zoomAt(clientX: number, clientY: number, factor: number): void {
     const st = this.stageRef.nativeElement.getBoundingClientRect();
@@ -185,7 +208,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.coParent.set(sp.length === 1 ? sp[0].id : null);   // default to the sole spouse, but editable
     this.delArmed.set(false); this.formOpen.set(true);
   }
-  openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.delArmed.set(false); this.formOpen.set(true); }
+  openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.fPhoto.set(p?.photo_url ?? null); this.delArmed.set(false); this.formOpen.set(true); }
   closeForm(): void { this.formOpen.set(false); this.formMode.set(null); }
   onScrim(e: MouseEvent, which: 'form' | 'pov'): void {
     if (e.target !== e.currentTarget) return;
@@ -196,7 +219,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const first = this.fFirst().trim(); if (!first) return;
     const last = this.fLast().trim() || null;
     const m = this.formMode(); if (!m) return;
-    if (m.type === 'edit') { await this.svc.rename(m.id, first, last); this.closeForm(); return; }
+    if (m.type === 'edit') { await this.svc.rename(m.id, first, last, this.fPhoto()); this.closeForm(); return; }
     if (m.type === 'addRoot') { this.closeForm(); const id = await this.svc.addPerson(first, last); if (id > 0) this.setPov(id); return; }
     await this.svc.addRelative(m.relation, m.anchor, first, last, this.coParent());
     this.closeForm();
@@ -220,6 +243,9 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   openPov(): void { this.povQuery.set(''); this.povOpen.set(true); }
   pickPov(id: number): void { this.povOpen.set(false); this.setPov(id); }
+  async setDefaultPov(id: number): Promise<void> { await this.svc.setDefaultPov(id); }
+  /** The starred viewpoint: the explicitly-set default, else the first-created person. */
+  isDefaultPov(id: number): boolean { const d = this.svc.defaultPovId(); return (d != null ? d : this.svc.data().people[0]?.id) === id; }
   switchLang(l: Lang): void { this.lang.set(l); document.body.classList.toggle('te', l === 'te'); setTimeout(() => this.centerOn(this.pov()), 0); }
 
   async signInGoogle(): Promise<void> { await this.svc.signInWithGoogle(); }

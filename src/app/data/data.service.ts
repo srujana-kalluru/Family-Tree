@@ -4,7 +4,7 @@ import { environment } from '../../environments/environment';
 import { TreeData, Person, Marriage, ParentChild } from '../core/models';
 
 type Relation = 'spouse' | 'child';
-const SELECT = 'id,first_name,last_name,created_by_email,updated_by_email,created_at,updated_at';
+const SELECT = 'id,first_name,last_name,photo_url,created_by_email,updated_by_email,created_at,updated_at';
 const EMPTY: TreeData = { people: [], marriages: [], parentChild: [] };
 
 @Injectable({ providedIn: 'root' })
@@ -14,9 +14,11 @@ export class DataService {
   readonly ready = signal(false);
   readonly signedIn = signal(false);
   readonly userEmail = signal<string | null>(null);
+  readonly userPhoto = signal<string | null>(null);
   readonly userId = signal<string | null>(null);
   readonly lastError = signal<string | null>(null);
   readonly data = signal<TreeData>({ people: [], marriages: [], parentChild: [] });
+  readonly defaultPovId = signal<number | null>(null);
 
   constructor() {
     const url = environment.supabaseUrl?.trim();
@@ -32,6 +34,8 @@ export class DataService {
     this.signedIn.set(!!session);
     this.userEmail.set(session?.user?.email ?? null);
     this.userId.set(session?.user?.id ?? null);
+    const meta = session?.user?.user_metadata ?? {};
+    this.userPhoto.set((meta['avatar_url'] as string) ?? (meta['picture'] as string) ?? null);
   }
 
   /** Editing requires a signed-in Supabase user - identical locally and in production. */
@@ -63,7 +67,19 @@ export class DataService {
       this.fail(e);
       this.data.set({ ...EMPTY });
     }
+    try {   // resilient: a missing settings table just means no default yet
+      const s = await this.client.from('app_settings').select('default_person_id').eq('id', 1).maybeSingle();
+      this.defaultPovId.set(s.error ? null : ((s.data as { default_person_id: number | null } | null)?.default_person_id ?? null));
+    } catch { this.defaultPovId.set(null); }
     this.ready.set(true);
+  }
+
+  async setDefaultPov(personId: number): Promise<void> {
+    if (!this.client) return;
+    const prev = this.defaultPovId();
+    this.defaultPovId.set(personId);   // optimistic
+    const { error } = await this.client.from('app_settings').upsert({ id: 1, default_person_id: personId, updated_by_email: this.userEmail(), updated_at: new Date().toISOString() });
+    if (error) { this.defaultPovId.set(prev); this.fail(error); }
   }
 
   clearError(): void { this.lastError.set(null); }
@@ -140,11 +156,11 @@ export class DataService {
     if (error) { this.fail(error); await this.load(); }
   }
 
-  async rename(id: number, first: string, last: string | null): Promise<void> {
+  async rename(id: number, first: string, last: string | null, photo: string | null): Promise<void> {
     if (!this.client) return;
     const email = this.userEmail(); const now = new Date().toISOString();
-    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.first_name = first; p.last_name = last; p.updated_by_email = email; p.updated_at = now; } });
-    const { error } = await this.client.from('person').update({ first_name: first, last_name: last, updated_by: this.userId(), updated_by_email: email, updated_at: now }).eq('id', id);
+    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.first_name = first; p.last_name = last; p.photo_url = photo; p.updated_by_email = email; p.updated_at = now; } });
+    const { error } = await this.client.from('person').update({ first_name: first, last_name: last, photo_url: photo, updated_by: this.userId(), updated_by_email: email, updated_at: now }).eq('id', id);
     if (error) { this.fail(error); await this.load(); }
   }
   async deletePerson(id: number): Promise<void> {

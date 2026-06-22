@@ -112,6 +112,11 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   vpeople.forEach(p => { if (lvl[p.id] == null) return; pos[p.id] = { x: x[p.id] - minX + MARGIN, y: lvl[p.id] * ROW + MARGIN }; });
   const width = (maxX - minX) + MARGIN * 2 + NODE_W, height = maxL * ROW + MARGIN * 2 + 120;
 
+  return finishView(graph, pov, lang, pos, famSet, width, height);
+}
+
+/** Build nodes, connector wires and the immediate-family box from final positions. Shared by the custom and ELK layouts. */
+export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Record<number, { x: number; y: number }>, famSet: Set<number>, width: number, height: number): TreeView {
   const avSize = (id: number) => id === pov ? S_POV : (famSet.has(id) ? S_MAIN : S_EXT);
   const anchor = (id: number): Anchor | null => {
     const p = pos[id]; if (!p) return null;
@@ -120,12 +125,12 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   };
 
   const nodes: PositionedNode[] = [];
-  vpeople.forEach(p => {
+  graph.data.people.forEach(p => {
     const ps = pos[p.id]; if (!ps) return;
     const cls: NodeClass = p.id === pov ? 'pov' : (famSet.has(p.id) ? 'main' : 'ext');
     const first = dispName(p.first_name, lang);
     const full = p.last_name ? `${first} ${dispName(p.last_name, lang)}` : first;
-    nodes.push({ id: p.id, x: ps.x, y: ps.y, size: avSize(p.id), cls, label: first, initials: initialsOf(full) });
+    nodes.push({ id: p.id, x: ps.x, y: ps.y, size: avSize(p.id), cls, label: first, initials: initialsOf(full), photo: p.photo_url ?? null });
   });
 
   const wires: Wire[] = [];
@@ -133,7 +138,14 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
     const A = anchor(m.partner1_id), B = anchor(m.partner2_id); if (!A || !B) return;
     const L = A.cx <= B.cx ? A : B, R = A.cx <= B.cx ? B : A;
     const main = (m.partner1_id === pov || m.partner2_id === pov);
-    wires.push({ x1: L.right, y1: L.cy, x2: R.left, y2: R.cy, main });
+    if (Math.abs(L.cy - R.cy) < 1) {
+      wires.push({ x1: L.right, y1: L.cy, x2: R.left, y2: R.cy, main });   // same generation: straight horizontal
+    } else {
+      const midX = (L.right + R.left) / 2;                                 // partners on different generations: orthogonal elbow, never a diagonal
+      wires.push({ x1: L.right, y1: L.cy, x2: midX, y2: L.cy, main });
+      wires.push({ x1: midX, y1: L.cy, x2: midX, y2: R.cy, main });
+      wires.push({ x1: midX, y1: R.cy, x2: R.left, y2: R.cy, main });
+    }
   });
 
   const kidPar: Record<number, number[]> = {};

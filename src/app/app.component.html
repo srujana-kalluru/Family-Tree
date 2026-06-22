@@ -9,22 +9,20 @@
     <span>{{ t('appTitle') }}</span>
   </div>
   <div class="spacer"></div>
-  <button class="hbtn" (click)="openPov()" *ngIf="view().nodes.length"><span class="who">{{ t('viewpoint') }}</span> <b>{{ nameOf(pov()) }}</b></button>
-  <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="addPersonBtn()">+ <span>{{ t('addPerson') }}</span></button>
-  <button class="hbtn" *ngIf="svc.online() && !svc.signedIn() && view().nodes.length" (click)="signInGoogle()">
-    <svg class="gicon" viewBox="0 0 18 18" width="15" height="15" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
-    {{ t('signInGoogle') }}
-  </button>
-  <button class="hbtn" *ngIf="svc.online() && svc.signedIn()" (click)="signOut()" [title]="svc.userEmail() || ''">{{ t('signOut') }}</button>
-  <div class="seg">
-    <button [class.on]="lang()==='en'" (click)="switchLang('en')">EN</button>
-    <button [class.on]="lang()==='te'" (click)="switchLang('te')">తెలుగు</button>
-  </div>
+  <ng-container *ngIf="svc.signedIn()">
+    <button class="hbtn" (click)="openPov()" *ngIf="view().nodes.length"><span class="who">{{ t('viewpoint') }}</span> <b>{{ nameOf(pov()) }}</b></button>
+    <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="addPersonBtn()">+ <span>{{ t('addPerson') }}</span></button>
+    <button class="hbtn" (click)="signOut()" [title]="svc.userEmail() || ''">{{ t('signOut') }}</button>
+    <div class="seg">
+      <button [class.on]="lang()==='en'" (click)="switchLang('en')">EN</button>
+      <button [class.on]="lang()==='te'" (click)="switchLang('te')">తెలుగు</button>
+    </div>
+  </ng-container>
 </header>
 
 <div class="stage" #stage (mousedown)="onStageMouseDown($event)"
      (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd()">
-  <div class="viewport" [style.transform]="transform()">
+  <div class="viewport" *ngIf="svc.signedIn()" [style.transform]="transform()">
     <svg class="wires" [attr.width]="view().width" [attr.height]="view().height">
       <rect *ngIf="view().box as b" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h"
             rx="28" ry="28" fill="rgba(0,113,227,0.05)" stroke="rgba(0,113,227,0.45)" stroke-width="2" stroke-dasharray="7 6"></rect>
@@ -39,7 +37,8 @@
          (click)="onNodeClick(n.id)" (dblclick)="onNodeDbl(n.id)" (keydown.enter)="setPov(n.id)">
       <div class="avatar" [style.width.px]="n.size" [style.height.px]="n.size"
            [style.font-size.px]="round(n.size*0.3)" [style.background]="avatarBg(n.cls)">
-        {{ n.initials }}
+        <img *ngIf="n.photo" [src]="n.photo" [alt]="n.label" />
+        <ng-container *ngIf="!n.photo">{{ n.initials }}</ng-container>
       </div>
       <div class="name">{{ n.label }}</div>
       <ng-container *ngIf="svc.canEdit()">
@@ -51,7 +50,7 @@
     </div>
   </div>
 
-  <div class="welcome" *ngIf="svc.ready() && view().nodes.length === 0">
+  <div class="welcome" *ngIf="svc.ready() && (!svc.signedIn() || view().nodes.length === 0)">
     <div class="welcome-card">
       <div class="welcome-icon">
         <svg viewBox="0 0 24 24" width="38" height="38" aria-hidden="true">
@@ -60,7 +59,7 @@
         </svg>
       </div>
       <h1>{{ t('appTitle') }}</h1>
-      <p>{{ svc.canEdit() ? t('addFirstSub') : t('welcomeSub') }}</p>
+      <p>{{ !svc.online() ? t('offline') : (svc.canEdit() ? t('addFirstSub') : t('welcomeSub')) }}</p>
       <button *ngIf="svc.canEdit()" class="gbtn cta" (click)="openAddRoot()">{{ t('addFirst') }}</button>
       <button *ngIf="!svc.canEdit() && svc.online()" class="gbtn" (click)="signInGoogle()">
         <svg class="gicon" viewBox="0 0 18 18" width="17" height="17" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
@@ -69,14 +68,14 @@
     </div>
   </div>
 
-  <div class="zoombar" *ngIf="view().nodes.length">
+  <div class="zoombar" *ngIf="svc.signedIn() && view().nodes.length">
     <button (click)="zoomBtn(0.83)" title="Zoom out">−</button>
     <button class="fit" (click)="fitView()">{{ t('fit') }}</button>
     <button (click)="zoomBtn(1.2)" title="Zoom in">+</button>
   </div>
 </div>
 
-<div class="caption" *ngIf="view().nodes.length">
+<div class="caption" *ngIf="svc.signedIn() && view().nodes.length">
   <span>{{ t('panHint') }}</span>
   <span class="legend">
     <span><i class="dot m"></i>{{ t('mainFamily') }}</span>
@@ -127,6 +126,21 @@
     </div>
 
     <div *ngIf="isEdit()">
+      <label>{{ t('photo') }}</label>
+      <div class="photoedit">
+        <div class="photoprev">
+          <img *ngIf="fPhoto()" [src]="fPhoto()" alt="" />
+          <span *ngIf="!fPhoto()">{{ (fFirst()[0] || '?').toUpperCase() }}</span>
+        </div>
+        <div class="photoctl">
+          <input type="text" [ngModel]="fPhoto() || ''" (ngModelChange)="fPhoto.set($event || null)" [placeholder]="t('photoUrl')" [attr.aria-label]="t('photo')" autocomplete="off" />
+          <div class="photobtns">
+            <button type="button" class="chip" *ngIf="svc.userPhoto()" (click)="fPhoto.set(svc.userPhoto())">{{ t('useGooglePhoto') }}</button>
+            <button type="button" class="chip" *ngIf="fPhoto()" (click)="fPhoto.set(null)">{{ t('removePhoto') }}</button>
+          </div>
+        </div>
+      </div>
+
       <label>{{ t('relationships') }}</label>
       <div class="relrow" *ngIf="parentsOf(editId()).length">
         <span class="rellabel">{{ t('parents') }}</span>
@@ -175,13 +189,20 @@
     <div class="plist">
       <div class="pitem" *ngFor="let p of povList()" role="button" tabindex="0" (click)="pickPov(p.id)" (keydown.enter)="pickPov(p.id)">
         <ng-container *ngTemplateOutlet="personRow; context: { $implicit: p }"></ng-container>
+        <button class="starbtn" *ngIf="svc.canEdit()" [class.on]="isDefaultPov(p.id)"
+                (click)="$event.stopPropagation(); setDefaultPov(p.id)" (keydown.enter)="$event.stopPropagation(); setDefaultPov(p.id)"
+                [title]="isDefaultPov(p.id) ? t('defaultViewpoint') : t('setDefault')">{{ isDefaultPov(p.id) ? '★' : '☆' }}</button>
+        <span class="starbtn on" *ngIf="!svc.canEdit() && isDefaultPov(p.id)" [title]="t('defaultViewpoint')">★</span>
       </div>
     </div>
   </div>
 </div>
 
 <ng-template #personRow let-p>
-  <div class="pav" [style.background]="grad(p.id)">{{ (nameOf(p.id)[0] || '').toUpperCase() }}</div>
+  <div class="pav" [style.background]="photoOf(p.id) ? 'none' : grad(p.id)">
+    <img *ngIf="photoOf(p.id)" [src]="photoOf(p.id)" alt="" />
+    <span *ngIf="!photoOf(p.id)">{{ (nameOf(p.id)[0] || '').toUpperCase() }}</span>
+  </div>
   <div class="pmeta">
     <div class="pn">{{ nameOf(p.id) }}<span class="pl" *ngIf="lastNameOf(p.id)"> {{ lastNameOf(p.id) }}</span></div>
     <div class="cur" *ngIf="p.id===pov()">{{ t('current') }}</div>

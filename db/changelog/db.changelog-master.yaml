@@ -51,3 +51,23 @@ databaseChangeLog:
         - sql: 'alter table person alter column name set not null'
         - sql: 'alter table person drop column if exists first_name'
         - sql: 'alter table person drop column if exists last_name'
+  - changeSet:
+      id: 005-settings
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/005-settings.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql: 'drop policy if exists "write app_settings" on app_settings'
+        - sql: 'drop policy if exists "read app_settings" on app_settings'
+        - sql: 'drop table if exists app_settings cascade'
+  - changeSet:
+      id: 006-photo
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/006-photo.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql: 'alter table person drop column if exists photo_url'
