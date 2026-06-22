@@ -198,12 +198,12 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
     const main = (m.partner1_id === pov || m.partner2_id === pov);
     const mids = [m.partner1_id, m.partner2_id];
     if (Math.abs(L.cy - R.cy) < 1) {
-      wires.push({ x1: L.right, y1: L.cy, x2: R.left, y2: R.cy, main, ids: mids });   // same generation: straight horizontal
+      wires.push({ x1: L.right, y1: L.cy, x2: R.left, y2: R.cy, main, kind: 'mar', ids: mids });   // same generation: straight horizontal
     } else {
       const midX = (L.right + R.left) / 2;                                 // partners on different generations: orthogonal elbow, never a diagonal
-      wires.push({ x1: L.right, y1: L.cy, x2: midX, y2: L.cy, main, ids: mids });
-      wires.push({ x1: midX, y1: L.cy, x2: midX, y2: R.cy, main, ids: mids });
-      wires.push({ x1: midX, y1: R.cy, x2: R.left, y2: R.cy, main, ids: mids });
+      wires.push({ x1: L.right, y1: L.cy, x2: midX, y2: L.cy, main, kind: 'mar', ids: mids });
+      wires.push({ x1: midX, y1: L.cy, x2: midX, y2: R.cy, main, kind: 'mar', ids: mids });
+      wires.push({ x1: midX, y1: R.cy, x2: R.left, y2: R.cy, main, kind: 'mar', ids: mids });
     }
   });
 
@@ -235,14 +235,13 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
   });
   famArr.forEach(f => {
     const main = f.pars.includes(pov);
-    wires.push({ x1: f.px, y1: f.dropTop, x2: f.px, y2: f.busY, main, ids: f.pars });   // drop from the couple down to the bus
-    // Emit the horizontal bus as one stub per child (parents' centre -> child). The stubs overlap into the same
-    // bus visually, but tagging each with its own child lets the branch-highlight trace only the children that
-    // are ON the branch - the non-branch siblings' stubs stay dim, so no tail branches hang off the trace.
+    wires.push({ x1: f.px, y1: f.dropTop, x2: f.px, y2: f.busY, main, kind: 'drop', pars: f.pars, kids: f.kids });   // drop from the couple down to the bus
+    // Emit the horizontal bus as one stub per child (parents' centre -> child). The stubs overlap into the same bus
+    // visually, but tagging each with its parents+child lets the branch-highlight trace only the bloodline children.
     f.kids.forEach(id => {
       const a = anchor(id)!;
-      wires.push({ x1: f.px, y1: f.busY, x2: a.cx, y2: f.busY, main, ids: [...f.pars, id] });   // bus stub to this child
-      wires.push({ x1: a.cx, y1: f.busY, x2: a.cx, y2: a.top, main, ids: [id] });                // child vertical
+      wires.push({ x1: f.px, y1: f.busY, x2: a.cx, y2: f.busY, main, kind: 'bus', pars: f.pars, kid: id });   // bus stub to this child
+      wires.push({ x1: a.cx, y1: f.busY, x2: a.cx, y2: a.top, main, kind: 'kid', pars: f.pars, kid: id });     // child vertical
     });
   });
 

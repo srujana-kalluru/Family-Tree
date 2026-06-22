@@ -94,9 +94,25 @@ export class AppComponent implements OnInit, AfterViewInit {
     g.spouses(h).forEach(sp => s.add(sp.id));
     return s;
   });
-  /** A connector segment is on the highlighted branch when every person it links is in the branch set.
-   *  Because each bus stub is tagged with its own child, sibling stubs (tail branches) stay off the trace. */
-  wireHi(w: Wire): boolean { const B = this.branchSet(); return this.highlight() != null && !!w.ids && w.ids.every(id => B.has(id)); }
+  /** Whether a connector is on the bloodline trace. A child link (drop/bus/vertical) lights only when the child
+   *  AND one of its parents are in the branch - so an in-law co-parent (or the POV's spouse's own parents) never
+   *  leaves a floating, disconnected line. A marriage lights when both partners are in the branch, or one is and
+   *  the couple has a branch child (needed to reach a grandchild). */
+  wireHi(w: Wire): boolean {
+    if (this.highlight() == null) return false;
+    const B = this.branchSet();
+    if (w.kind === 'mar') {
+      const a = w.ids![0], b = w.ids![1];
+      return (B.has(a) || B.has(b)) && ((B.has(a) && B.has(b)) || this.coupleHasBranchChild(a, b, B));
+    }
+    if (w.kind === 'drop') return (w.kids ?? []).some(k => B.has(k)) && (w.pars ?? []).some(p => B.has(p));
+    if (w.kind === 'bus' || w.kind === 'kid') return w.kid != null && B.has(w.kid) && (w.pars ?? []).some(p => B.has(p));
+    return false;
+  }
+  private coupleHasBranchChild(a: number, b: number, B: Set<number>): boolean {
+    const g = this.graph();
+    return g.children(a).some(c => B.has(c.id) && g.parents(c.id).some(p => p.id === b));
+  }
   /** Case-insensitive name search + first-name sort, shared by the viewpoint and link pickers. */
   private matchSort(people: Person[], q: string): Person[] {
     return people
@@ -123,7 +139,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   private maybeInitialFit(): void {
     if (this.fitted || !this.stageRef || !this.view().nodes.length) return;
     this.fitted = true;
-    setTimeout(() => this.fitView(), 0);
+    setTimeout(() => this.fitView(1.3), 0);   // initial load starts 30% more zoomed-in than fit-to-screen
   }
 
   async ngOnInit(): Promise<void> {
@@ -142,7 +158,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const el = this.stageRef.nativeElement;
     el.addEventListener('wheel', this.onWheel, { passive: false });
     el.addEventListener('touchmove', this.onTouchMove, { passive: false });
-    setTimeout(() => this.fitView(), 0);
+    setTimeout(() => this.fitView(1.3), 0);   // initial load starts 30% more zoomed-in than fit-to-screen
   }
 
   t(k: string): string { return tr(k, this.lang()); }
@@ -210,13 +226,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.scale.set(ns);
   }
   zoomBtn(f: number): void { const st = this.stageRef.nativeElement.getBoundingClientRect(); this.zoomAt(st.left + st.width / 2, st.top + st.height / 2, f); }
-  fitView(): void {
+  fitView(zoom = 1): void {
     const st = this.stageRef?.nativeElement; if (!st) return;
     const v = this.view(); if (!v.width || !v.height) return;
-    const s = Math.min(st.clientWidth / v.width, st.clientHeight / v.height) * 0.92;
-    this.scale.set(Math.max(0.25, Math.min(s, 1.1)));
-    this.panX.set((st.clientWidth - v.width * this.scale()) / 2);
-    this.panY.set((st.clientHeight - v.height * this.scale()) / 2);
+    const fit = Math.min(st.clientWidth / v.width, st.clientHeight / v.height) * 0.92;
+    const s = Math.max(0.25, Math.min(fit, 1.1) * zoom);   // zoom=1 fits to screen; initial load passes 1.3 to start 30% closer
+    this.scale.set(s);
+    this.panX.set((st.clientWidth - v.width * s) / 2);
+    this.panY.set((st.clientHeight - v.height * s) / 2);
   }
   centerOn(id: number): void {
     const st = this.stageRef?.nativeElement; if (!st) return;
