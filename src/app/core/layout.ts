@@ -72,7 +72,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
         if (byGender) m = byGender;   // male on the left, female on the right
         else {
           const idFam = famSet.has(id), spFam = famSet.has(sp);
-          if (idFam !== spFam) {   // a nuclear child paired with their in-law: keep the child toward its parents, push the in-law to the outer edge (out of the nuclear box)
+          if (idFam !== spFam) {   // a nuclear child paired with their in-law: keep the child toward its parents, push the in-law to the outer edge
             const kid = idFam ? id : sp, inlaw = idFam ? sp : id;
             const c = pax[kid] != null ? pax[kid]! : dx[kid];
             m = c >= (dx[id] + dx[sp]) / 2 ? [inlaw, kid] : [kid, inlaw];
@@ -90,7 +90,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
       const dv = m.map(x => dx[x]); const gv = m.map(x => pax[x] != null ? pax[x]! : dx[x]);
       units.push({ m, d: dv.reduce((a, b) => a + b, 0) / dv.length, gk: gv.reduce((a, b) => a + b, 0) / gv.length });
     });
-    units.sort((a, b) => (a.gk - b.gk) || (a.d - b.d));
+    units.sort((a, b) => (a.d - b.d) || (a.gk - b.gk));   // order by where each unit's family pulls it (so a person's ancestors follow them), then by grandparent side
     let cursor = -Infinity; let prevFam: boolean | null = null; const placed: [number, number][] = [];
     units.forEach(u => {
       const uFam = u.m.some(id => famSet.has(id));

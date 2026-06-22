@@ -244,7 +244,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   async save(): Promise<void> {
-    const first = this.fFirst().trim(); if (!first) return;
+    const first = this.fFirst().trim(); if (!first || !this.fGender()) return;
     const last = this.fLast().trim() || null;
     const m = this.formMode(); if (!m) return;
     if (m.type === 'edit') { await this.svc.rename(m.id, first, last, this.fPhoto(), this.fGender()); this.closeForm(); return; }

@@ -69,7 +69,7 @@ export async function buildViewElk(graph: TreeGraph, pov: number, lang: Lang): P
     const members = coupleMembers.get(id), y = ny[id] + MARGIN;
     if (members) {
       const [a, b] = members;
-      const byGender = maleFirst(graph, a, b);   // male on the left, female on the right; else each spouse toward their own parents
+      const byGender = maleFirst(graph, a, b);   // male on the left, female on the right
       const leftId = byGender ? byGender[0] : (parentAvgX(a) <= parentAvgX(b) ? a : b);
       const rightId = byGender ? byGender[1] : (leftId === a ? b : a);
       pos[leftId] = { x: nx[id] + L_OFF + MARGIN, y };
