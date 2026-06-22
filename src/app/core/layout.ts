@@ -235,11 +235,15 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
   });
   famArr.forEach(f => {
     const main = f.pars.includes(pov);
-    wires.push({ x1: f.px, y1: f.dropTop, x2: f.px, y2: f.busY, main, ids: f.pars });
-    const xs = f.kids.map(id => pos[id].x);
-    const minXk = Math.min(f.px, ...xs), maxXk = Math.max(f.px, ...xs);
-    wires.push({ x1: minXk, y1: f.busY, x2: maxXk, y2: f.busY, main, ids: f.pars });
-    f.kids.forEach(id => { const a = anchor(id)!; wires.push({ x1: a.cx, y1: f.busY, x2: a.cx, y2: a.top, main, ids: [id] }); });
+    wires.push({ x1: f.px, y1: f.dropTop, x2: f.px, y2: f.busY, main, ids: f.pars });   // drop from the couple down to the bus
+    // Emit the horizontal bus as one stub per child (parents' centre -> child). The stubs overlap into the same
+    // bus visually, but tagging each with its own child lets the branch-highlight trace only the children that
+    // are ON the branch - the non-branch siblings' stubs stay dim, so no tail branches hang off the trace.
+    f.kids.forEach(id => {
+      const a = anchor(id)!;
+      wires.push({ x1: f.px, y1: f.busY, x2: a.cx, y2: f.busY, main, ids: [...f.pars, id] });   // bus stub to this child
+      wires.push({ x1: a.cx, y1: f.busY, x2: a.cx, y2: a.top, main, ids: [id] });                // child vertical
+    });
   });
 
   let box: BoxRect | null = null;

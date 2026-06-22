@@ -8,7 +8,7 @@ import { DataService } from './data/data.service';
 import { TreeGraph } from './core/tree-graph';
 import { buildView, AV, NODE_W } from './core/layout';
 import { buildViewElk } from './core/layout-elk';
-import { Lang, Person, TreeView } from './core/models';
+import { Lang, Person, TreeView, Wire } from './core/models';
 import { dispName } from './core/translit';
 import { tr } from './core/i18n';
 
@@ -94,21 +94,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     g.spouses(h).forEach(sp => s.add(sp.id));
     return s;
   });
-  /** Direct lines (avatar centre to avatar centre) tracing the hovered person's branch - no hanging buses. */
-  branchLines = computed(() => {
-    const h = this.highlight();
-    const out: { x1: number; y1: number; x2: number; y2: number }[] = [];
-    if (h == null) return out;
-    const g = this.graph(), B = this.branchSet(), pos = this.view().pos, seen = new Set<string>();
-    const add = (a: number, b: number) => {
-      const pa = pos[a], pb = pos[b]; if (!pa || !pb) return;
-      const k = a < b ? `${a}-${b}` : `${b}-${a}`; if (seen.has(k)) return; seen.add(k);
-      out.push({ x1: pa.x, y1: pa.y + this.AV / 2, x2: pb.x, y2: pb.y + this.AV / 2 });
-    };
-    B.forEach(id => g.parents(id).forEach(p => { if (B.has(p.id)) add(id, p.id); }));   // lineage up and down
-    g.spouses(h).forEach(s => { if (B.has(s.id)) add(h, s.id); });
-    return out;
-  });
+  /** A connector segment is on the highlighted branch when every person it links is in the branch set.
+   *  Because each bus stub is tagged with its own child, sibling stubs (tail branches) stay off the trace. */
+  wireHi(w: Wire): boolean { const B = this.branchSet(); return this.highlight() != null && !!w.ids && w.ids.every(id => B.has(id)); }
   /** Case-insensitive name search + first-name sort, shared by the viewpoint and link pickers. */
   private matchSort(people: Person[], q: string): Person[] {
     return people
