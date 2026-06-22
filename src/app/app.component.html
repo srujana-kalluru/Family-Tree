@@ -28,9 +28,10 @@
       <rect *ngIf="view().box as b" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h"
             rx="28" ry="28" fill="rgba(0,113,227,0.05)" stroke="rgba(0,113,227,0.45)" stroke-width="2" stroke-dasharray="7 6"></rect>
       <line *ngFor="let w of view().wires" [attr.x1]="w.x1" [attr.y1]="w.y1" [attr.x2]="w.x2" [attr.y2]="w.y2"
-            [attr.stroke]="highlight()!=null ? (wireHi(w) ? 'var(--accent)' : 'var(--ext)') : (w.main ? 'var(--main)' : 'var(--ext)')"
-            [attr.stroke-width]="highlight()!=null && wireHi(w) ? 4.5 : (w.main ? 2.4 : 1.8)"
-            [attr.stroke-opacity]="highlight()!=null && !wireHi(w) ? 0.18 : 1" stroke-linecap="round"></line>
+            [attr.stroke]="w.main ? 'var(--main)' : 'var(--ext)'" [attr.stroke-width]="w.main ? 2.4 : 1.8"
+            [attr.stroke-opacity]="highlight()!=null ? 0.1 : 1" stroke-linecap="round"></line>
+      <line *ngFor="let l of branchLines()" [attr.x1]="l.x1" [attr.y1]="l.y1" [attr.x2]="l.x2" [attr.y2]="l.y2"
+            stroke="var(--accent)" stroke-width="4" stroke-linecap="round"></line>
     </svg>
 
     <div *ngFor="let n of view().nodes" class="node" role="button" tabindex="0"

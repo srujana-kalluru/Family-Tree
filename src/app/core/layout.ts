@@ -14,6 +14,51 @@ export function maleFirst(graph: TreeGraph, a: number, b: number): [number, numb
   return null;
 }
 
+/**
+ * Gender-pedigree order key in [0,1] for every visible person: each person's father-lineage is placed to the
+ * LEFT and mother-lineage to the RIGHT, applied recursively from the POV couple (male partner on the left).
+ * People who aren't blood ancestors (descendants, siblings, in-laws) settle to the mean of their relatives.
+ * This only decides left-to-right ORDER; exact spacing still comes from the barycentre sweep.
+ */
+function genderOrder(graph: TreeGraph, pov: number, inV: (id: number) => boolean): Record<number, number> {
+  const ord: Record<number, number> = {};
+  const fixed = new Set<number>();
+  const parentsOf = (id: number) => graph.parents(id).filter(p => inV(p.id));
+  const assignUp = (id: number, lo: number, hi: number) => {
+    if (fixed.has(id)) return;
+    fixed.add(id); ord[id] = (lo + hi) / 2;
+    const ps = parentsOf(id);
+    let fa = ps.find(p => graph.byId(p.id)?.gender === 'male') ?? null;
+    let mo = ps.find(p => graph.byId(p.id)?.gender === 'female') ?? null;
+    if (!fa && !mo) { fa = ps[0] ?? null; mo = ps[1] ?? null; }                  // genders unknown: deterministic by order
+    else if (fa && !mo) mo = ps.find(p => p.id !== fa!.id) ?? null;             // pair a known father with the other parent
+    else if (mo && !fa) fa = ps.find(p => p.id !== mo!.id) ?? null;
+    const m = (lo + hi) / 2;
+    if (fa && mo) { assignUp(fa.id, lo, m); assignUp(mo.id, m, hi); }           // father lineage left, mother lineage right
+    else if (fa) assignUp(fa.id, lo, hi);
+    else if (mo) assignUp(mo.id, lo, hi);
+  };
+  const sps = graph.spouses(pov).filter(s => inV(s.id));
+  if (sps.length === 1) {
+    const pair = maleFirst(graph, pov, sps[0].id) ?? [pov, sps[0].id];          // male partner takes the left half
+    assignUp(pair[0], 0, 0.5); assignUp(pair[1], 0.5, 1);
+  } else {
+    assignUp(pov, 0, 1);
+  }
+  const others = graph.data.people.filter(p => inV(p.id) && !fixed.has(p.id)).map(p => p.id);
+  others.forEach(id => { ord[id] = 0.5; });
+  for (let it = 0; it < 40; it++) {                                            // pull non-ancestors to the mean of their assigned relatives
+    others.forEach(id => {
+      const nb: number[] = [];
+      graph.parents(id).forEach(p => { if (inV(p.id)) nb.push(ord[p.id]); });
+      graph.children(id).forEach(c => { if (inV(c.id)) nb.push(ord[c.id]); });
+      graph.spouses(id).forEach(s => { if (inV(s.id)) nb.push(ord[s.id]); });
+      if (nb.length) ord[id] = nb.reduce((a, b) => a + b, 0) / nb.length;
+    });
+  }
+  return ord;
+}
+
 /** Pure layout: turns the graph + viewpoint into positioned nodes, connector wires and the immediate-family box. */
 export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   const people = graph.data.people;
@@ -24,6 +69,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   const C = (id: number) => graph.children(id).filter(c => inV(c.id));
   const S = (id: number) => graph.spouses(id).filter(s => inV(s.id));
   const vpeople = people.filter(p => inV(p.id));
+  const ord = genderOrder(graph, pov, inV);   // male lineages sort left, female lineages right (recursive)
 
   const lvl: Record<number, number> = {}; const seen = new Set<number>();
   const bfs = (start: number) => {
@@ -59,7 +105,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
       const pv = P(id).map(p => x[p.id]).filter(v => v != null);
       pax[id] = pv.length ? pv.reduce((a, b) => a + b, 0) / pv.length : null;
     });
-    const used = new Set<number>(); const units: { m: number[]; d: number; gk: number }[] = [];
+    const used = new Set<number>(); const units: { m: number[]; d: number; ord: number }[] = [];
     row.forEach(id => {
       if (used.has(id)) return;
       const sps = S(id).filter(s => lvl[s.id] === ri && !used.has(s.id));
@@ -87,10 +133,10 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
         const mid = Math.ceil(sorted.length / 2);
         m = [...sorted.slice(0, mid), id, ...sorted.slice(mid)];   // hub centered among its spouses
       }
-      const dv = m.map(x => dx[x]); const gv = m.map(x => pax[x] != null ? pax[x]! : dx[x]);
-      units.push({ m, d: dv.reduce((a, b) => a + b, 0) / dv.length, gk: gv.reduce((a, b) => a + b, 0) / gv.length });
+      const dv = m.map(x => dx[x]); const ov = m.map(id => ord[id] ?? 0.5);
+      units.push({ m, d: dv.reduce((a, b) => a + b, 0) / dv.length, ord: ov.reduce((a, b) => a + b, 0) / ov.length });
     });
-    units.sort((a, b) => (a.d - b.d) || (a.gk - b.gk));   // order by where each unit's family pulls it (so a person's ancestors follow them), then by grandparent side
+    units.sort((a, b) => (a.ord - b.ord) || (a.d - b.d));   // gender pedigree decides order (male lineages left, female right); barycentre only fine-tunes spacing
     let cursor = -Infinity; let prevFam: boolean | null = null; const placed: [number, number][] = [];
     units.forEach(u => {
       const uFam = u.m.some(id => famSet.has(id));

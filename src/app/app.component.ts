@@ -8,7 +8,7 @@ import { DataService } from './data/data.service';
 import { TreeGraph } from './core/tree-graph';
 import { buildView, AV, NODE_W } from './core/layout';
 import { buildViewElk } from './core/layout-elk';
-import { Lang, Person, TreeView, Wire } from './core/models';
+import { Lang, Person, TreeView } from './core/models';
 import { dispName } from './core/translit';
 import { tr } from './core/i18n';
 
@@ -94,6 +94,21 @@ export class AppComponent implements OnInit, AfterViewInit {
     g.spouses(h).forEach(sp => s.add(sp.id));
     return s;
   });
+  /** Direct lines (avatar centre to avatar centre) tracing the hovered person's branch - no hanging buses. */
+  branchLines = computed(() => {
+    const h = this.highlight();
+    const out: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    if (h == null) return out;
+    const g = this.graph(), B = this.branchSet(), pos = this.view().pos, seen = new Set<string>();
+    const add = (a: number, b: number) => {
+      const pa = pos[a], pb = pos[b]; if (!pa || !pb) return;
+      const k = a < b ? `${a}-${b}` : `${b}-${a}`; if (seen.has(k)) return; seen.add(k);
+      out.push({ x1: pa.x, y1: pa.y + this.AV / 2, x2: pb.x, y2: pb.y + this.AV / 2 });
+    };
+    B.forEach(id => g.parents(id).forEach(p => { if (B.has(p.id)) add(id, p.id); }));   // lineage up and down
+    g.spouses(h).forEach(s => { if (B.has(s.id)) add(h, s.id); });
+    return out;
+  });
   /** Case-insensitive name search + first-name sort, shared by the viewpoint and link pickers. */
   private matchSort(people: Person[], q: string): Person[] {
     return people
@@ -147,7 +162,6 @@ export class AppComponent implements OnInit, AfterViewInit {
   nameOf(id: number): string { const p = this.byId(id); return p ? dispName(p.first_name, this.lang()) : ''; }
   lastNameOf(id: number): string { const p = this.byId(id); return p?.last_name ? dispName(p.last_name, this.lang()) : ''; }
   photoOf(id: number): string | null { return this.byId(id)?.photo_url ?? null; }
-  wireHi(w: Wire): boolean { return !!w.ids && w.ids.every(id => this.branchSet().has(id)); }
   round(n: number): number { return Math.round(n); }
   grad(id: number): string {
     let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
