@@ -4,7 +4,8 @@ import { environment } from '../../environments/environment';
 import { TreeData, Person, Marriage, ParentChild } from '../core/models';
 
 type Relation = 'spouse' | 'child';
-const SELECT = 'id,first_name,last_name,photo_url,created_by_email,updated_by_email,created_at,updated_at';
+type Gender = 'male' | 'female' | null;
+const SELECT = 'id,first_name,last_name,photo_url,gender,created_by_email,updated_by_email,created_at,updated_at';
 const EMPTY: TreeData = { people: [], marriages: [], parentChild: [] };
 
 @Injectable({ providedIn: 'root' })
@@ -105,25 +106,25 @@ export class DataService {
 
   /** Add a standalone person (the first person in an empty tree). Returns the new id, or -1 on failure. */
   /** Insert a person row and return its new id (throws on error). */
-  private async insertPerson(first: string, last: string | null): Promise<number> {
-    const ins = await this.client!.from('person').insert({ first_name: first, last_name: last }).select('id').single();
+  private async insertPerson(first: string, last: string | null, gender: Gender): Promise<number> {
+    const ins = await this.client!.from('person').insert({ first_name: first, last_name: last, gender }).select('id').single();
     if (ins.error) throw ins.error;
     return (ins.data as { id: number }).id;
   }
 
-  async addPerson(first: string, last: string | null): Promise<number> {
+  async addPerson(first: string, last: string | null, gender: Gender = null): Promise<number> {
     if (!this.client) return -1;
     try {
-      const id = await this.insertPerson(first, last);
-      this.mutate(d => d.people.push(this.stamp({ id, first_name: first, last_name: last })));
+      const id = await this.insertPerson(first, last, gender);
+      this.mutate(d => d.people.push(this.stamp({ id, first_name: first, last_name: last, gender })));
       return id;
     } catch (e) { this.fail(e); await this.load(); return -1; }
   }
 
-  async addRelative(relation: Relation, anchorId: number, first: string, last: string | null, coParentId: number | null = null): Promise<void> {
+  async addRelative(relation: Relation, anchorId: number, first: string, last: string | null, coParentId: number | null = null, gender: Gender = null): Promise<void> {
     if (!this.client) return;
     try {
-      const id = await this.insertPerson(first, last);
+      const id = await this.insertPerson(first, last, gender);
       let linkErr = null;
       if (relation === 'spouse') linkErr = (await this.client.from('marriage').insert({ partner1_id: anchorId, partner2_id: id })).error;
       if (relation === 'child') {
@@ -132,7 +133,7 @@ export class DataService {
         linkErr = (await this.client.from('parent_child').insert(rows)).error;
       }
       if (linkErr) throw linkErr;
-      this.mutate(d => { d.people.push(this.stamp({ id, first_name: first, last_name: last })); this.linkLocal(d, relation, anchorId, id, coParentId); });
+      this.mutate(d => { d.people.push(this.stamp({ id, first_name: first, last_name: last, gender })); this.linkLocal(d, relation, anchorId, id, coParentId); });
     } catch (e) { this.fail(e); await this.load(); }
   }
 
@@ -156,11 +157,11 @@ export class DataService {
     if (error) { this.fail(error); await this.load(); }
   }
 
-  async rename(id: number, first: string, last: string | null, photo: string | null): Promise<void> {
+  async rename(id: number, first: string, last: string | null, photo: string | null, gender: Gender): Promise<void> {
     if (!this.client) return;
     const email = this.userEmail(); const now = new Date().toISOString();
-    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.first_name = first; p.last_name = last; p.photo_url = photo; p.updated_by_email = email; p.updated_at = now; } });
-    const { error } = await this.client.from('person').update({ first_name: first, last_name: last, photo_url: photo, updated_by: this.userId(), updated_by_email: email, updated_at: now }).eq('id', id);
+    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.first_name = first; p.last_name = last; p.photo_url = photo; p.gender = gender; p.updated_by_email = email; p.updated_at = now; } });
+    const { error } = await this.client.from('person').update({ first_name: first, last_name: last, photo_url: photo, gender, updated_by: this.userId(), updated_by_email: email, updated_at: now }).eq('id', id);
     if (error) { this.fail(error); await this.load(); }
   }
   async deletePerson(id: number): Promise<void> {

@@ -1,7 +1,7 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { Lang, TreeView } from './models';
 import { TreeGraph } from './tree-graph';
-import { finishView, MARGIN } from './layout';
+import { finishView, maleFirst, MARGIN } from './layout';
 
 const elk = new ELK();
 const EMPTY: TreeView = { nodes: [], wires: [], box: null, width: 0, height: 0, pos: {} };
@@ -68,9 +68,12 @@ export async function buildViewElk(graph: TreeGraph, pov: number, lang: Lang): P
   nodeIds.forEach(id => {
     const members = coupleMembers.get(id), y = ny[id] + MARGIN;
     if (members) {
-      const [a, b] = members, aLeft = parentAvgX(a) <= parentAvgX(b);   // each spouse sits toward their own parents
-      pos[aLeft ? a : b] = { x: nx[id] + L_OFF + MARGIN, y };
-      pos[aLeft ? b : a] = { x: nx[id] + R_OFF + MARGIN, y };
+      const [a, b] = members;
+      const byGender = maleFirst(graph, a, b);   // male on the left, female on the right; else each spouse toward their own parents
+      const leftId = byGender ? byGender[0] : (parentAvgX(a) <= parentAvgX(b) ? a : b);
+      const rightId = byGender ? byGender[1] : (leftId === a ? b : a);
+      pos[leftId] = { x: nx[id] + L_OFF + MARGIN, y };
+      pos[rightId] = { x: nx[id] + R_OFF + MARGIN, y };
     } else {
       pos[+id.slice(1)] = { x: nx[id] + nw[id] / 2 + MARGIN, y };
     }

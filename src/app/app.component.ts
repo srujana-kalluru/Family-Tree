@@ -45,6 +45,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   linkQuery = signal('');
   coParent = signal<number | null>(null);
   fPhoto = signal<string | null>(null);
+  fGender = signal<'male' | 'female' | null>(null);
   delArmed = signal(false);
   povOpen = signal(false);
   povQuery = signal('');
@@ -130,9 +131,9 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   /** Canvas avatar colour by role: POV dark silver, family lighter blue, extended neutral. */
   avatarBg(cls: string): string {
-    if (cls === 'pov') return 'linear-gradient(150deg,#8e93a0 0%,#5b606b 55%,#3f434c 100%)';
-    if (cls === 'main') return 'linear-gradient(160deg,#6cb0ff,#3d86ef)';
-    return 'linear-gradient(160deg,#c4cad6,#a7aebd)';
+    if (cls === 'pov') return 'linear-gradient(150deg,#5f6675 0%,#41454f 55%,#2c2f37 100%)';
+    if (cls === 'main') return 'linear-gradient(160deg,#2b7de4,#1657b8)';
+    return 'linear-gradient(160deg,#737c8f,#565d6e)';
   }
   parentsOf(id: number) { return this.graph().parents(id); }
   spousesOf(id: number) { return this.graph().spouses(id); }
@@ -199,16 +200,16 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   addPersonBtn(): void { this.openAddRoot(); }
-  openAddRoot(): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'addRoot' }); this.fFirst.set(''); this.fLast.set(''); this.delArmed.set(false); this.formOpen.set(true); }
+  openAddRoot(): void { if (!this.svc.canEdit()) return; this.formMode.set({ type: 'addRoot' }); this.fFirst.set(''); this.fLast.set(''); this.fPhoto.set(null); this.fGender.set(null); this.delArmed.set(false); this.formOpen.set(true); }
   openAdd(relation: Relation, anchorId: number): void {
     if (!this.svc.canEdit()) return;
     this.formMode.set({ type: 'add', relation, anchor: anchorId });
-    this.fFirst.set(''); this.fLast.set(''); this.addExisting.set(false); this.linkQuery.set('');
+    this.fFirst.set(''); this.fLast.set(''); this.fPhoto.set(null); this.fGender.set(null); this.addExisting.set(false); this.linkQuery.set('');
     const sp = relation === 'child' ? this.graph().spouses(anchorId) : [];
     this.coParent.set(sp.length === 1 ? sp[0].id : null);   // default to the sole spouse, but editable
     this.delArmed.set(false); this.formOpen.set(true);
   }
-  openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.fPhoto.set(p?.photo_url ?? null); this.delArmed.set(false); this.formOpen.set(true); }
+  openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.fPhoto.set(p?.photo_url ?? null); this.fGender.set(p?.gender ?? null); this.delArmed.set(false); this.formOpen.set(true); }
   closeForm(): void { this.formOpen.set(false); this.formMode.set(null); }
   onScrim(e: MouseEvent, which: 'form' | 'pov'): void {
     if (e.target !== e.currentTarget) return;
@@ -219,9 +220,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     const first = this.fFirst().trim(); if (!first) return;
     const last = this.fLast().trim() || null;
     const m = this.formMode(); if (!m) return;
-    if (m.type === 'edit') { await this.svc.rename(m.id, first, last, this.fPhoto()); this.closeForm(); return; }
-    if (m.type === 'addRoot') { this.closeForm(); const id = await this.svc.addPerson(first, last); if (id > 0) this.setPov(id); return; }
-    await this.svc.addRelative(m.relation, m.anchor, first, last, this.coParent());
+    if (m.type === 'edit') { await this.svc.rename(m.id, first, last, this.fPhoto(), this.fGender()); this.closeForm(); return; }
+    if (m.type === 'addRoot') { this.closeForm(); const id = await this.svc.addPerson(first, last, this.fGender()); if (id > 0) this.setPov(id); return; }
+    await this.svc.addRelative(m.relation, m.anchor, first, last, this.coParent(), this.fGender());
     this.closeForm();
   }
   async confirmDelete(): Promise<void> {

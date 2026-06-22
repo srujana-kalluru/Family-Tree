@@ -6,6 +6,14 @@ export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 94, FAM_GAP
 
 interface Anchor { cx: number; top: number; bottom: number; cy: number; left: number; right: number; }
 
+/** Order a married pair male-on-left, female-on-right. Returns null when gender doesn't decide it. */
+export function maleFirst(graph: TreeGraph, a: number, b: number): [number, number] | null {
+  const ga = graph.byId(a)?.gender, gb = graph.byId(b)?.gender;
+  if (ga === 'male' && gb === 'female') return [a, b];
+  if (ga === 'female' && gb === 'male') return [b, a];
+  return null;
+}
+
 /** Pure layout: turns the graph + viewpoint into positioned nodes, connector wires and the immediate-family box. */
 export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   const people = graph.data.people;
@@ -60,13 +68,17 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
       if (!sps.length) m = [id];
       else if (sps.length === 1) {
         const sp = sps[0].id; used.add(sp);
-        const idFam = famSet.has(id), spFam = famSet.has(sp);
-        if (idFam !== spFam) {   // a nuclear child paired with their in-law: keep the child toward its parents, push the in-law to the outer edge (out of the nuclear box)
-          const kid = idFam ? id : sp, inlaw = idFam ? sp : id;
-          const c = pax[kid] != null ? pax[kid]! : dx[kid];
-          m = c >= (dx[id] + dx[sp]) / 2 ? [inlaw, kid] : [kid, inlaw];
-        } else {
-          m = dx[id] <= dx[sp] ? [id, sp] : [sp, id];
+        const byGender = maleFirst(graph, id, sp);
+        if (byGender) m = byGender;   // male on the left, female on the right
+        else {
+          const idFam = famSet.has(id), spFam = famSet.has(sp);
+          if (idFam !== spFam) {   // a nuclear child paired with their in-law: keep the child toward its parents, push the in-law to the outer edge (out of the nuclear box)
+            const kid = idFam ? id : sp, inlaw = idFam ? sp : id;
+            const c = pax[kid] != null ? pax[kid]! : dx[kid];
+            m = c >= (dx[id] + dx[sp]) / 2 ? [inlaw, kid] : [kid, inlaw];
+          } else {
+            m = dx[id] <= dx[sp] ? [id, sp] : [sp, id];
+          }
         }
       }
       else {

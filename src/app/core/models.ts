@@ -3,6 +3,7 @@ export interface Person {
   first_name: string;
   last_name?: string | null;
   photo_url?: string | null;
+  gender?: 'male' | 'female' | null;
   created_by_email?: string | null;
   updated_by_email?: string | null;
   created_at?: string | null;

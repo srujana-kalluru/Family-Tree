@@ -113,6 +113,11 @@
       <input id="f-first" type="text" [ngModel]="fFirst()" (ngModelChange)="fFirst.set($event)" (keydown.enter)="save()" autocomplete="off" />
       <label for="f-last">{{ t('lastName') }}</label>
       <input id="f-last" type="text" [ngModel]="fLast()" (ngModelChange)="fLast.set($event)" (keydown.enter)="save()" autocomplete="off" />
+      <label>{{ t('gender') }}</label>
+      <div class="quick">
+        <button type="button" class="chip" [class.on]="fGender()==='male'" (click)="fGender.set(fGender()==='male' ? null : 'male')">{{ t('male') }}</button>
+        <button type="button" class="chip" [class.on]="fGender()==='female'" (click)="fGender.set(fGender()==='female' ? null : 'female')">{{ t('female') }}</button>
+      </div>
     </ng-container>
 
     <div *ngIf="isAdd() && addExisting()">
