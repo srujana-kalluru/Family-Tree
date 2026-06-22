@@ -36,11 +36,11 @@ export class TreeGraph {
     up(id);
     return out;
   }
-  /** Blood relatives up to grandparents + their descendants, every blood relative's spouse, and the POV's spouse's parents. */
+  /** Blood relatives up to great-grandparents + their descendants, every blood relative's spouse, and the POV's spouse's parents. */
   bloodAndSpouse(povId: number): Set<number> {
     const anc = new Set<number>([povId]);
     const up = (id: number, depth: number) => {
-      if (depth >= 2) return;   // cap the ancestor line at grandparents (no great-grandparents and their branches)
+      if (depth >= 3) return;   // cap the ancestor line at great-grandparents (3 levels up)
       this.parents(id).forEach(p => { if (!anc.has(p.id)) { anc.add(p.id); up(p.id, depth + 1); } });
     };
     up(povId, 0);
