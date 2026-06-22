@@ -28,13 +28,17 @@
       <rect *ngIf="view().box as b" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h"
             rx="28" ry="28" fill="rgba(0,113,227,0.05)" stroke="rgba(0,113,227,0.45)" stroke-width="2" stroke-dasharray="7 6"></rect>
       <line *ngFor="let w of view().wires" [attr.x1]="w.x1" [attr.y1]="w.y1" [attr.x2]="w.x2" [attr.y2]="w.y2"
-            [attr.stroke]="w.main ? 'var(--main)' : 'var(--ext)'" [attr.stroke-width]="w.main ? 2.4 : 1.8" stroke-linecap="round"></line>
+            [attr.stroke]="highlight()!=null ? (wireHi(w) ? 'var(--accent)' : 'var(--ext)') : (w.main ? 'var(--main)' : 'var(--ext)')"
+            [attr.stroke-width]="highlight()!=null && wireHi(w) ? 4.5 : (w.main ? 2.4 : 1.8)"
+            [attr.stroke-opacity]="highlight()!=null && !wireHi(w) ? 0.18 : 1" stroke-linecap="round"></line>
     </svg>
 
     <div *ngFor="let n of view().nodes" class="node" role="button" tabindex="0"
          [attr.aria-label]="n.label"
          [class.pov]="n.cls==='pov'" [class.main]="n.cls==='main'" [class.ext]="n.cls==='ext'"
          [style.left.px]="n.x - NODE_W/2" [style.top.px]="n.y + AV/2 - n.size/2"
+         [style.opacity]="highlight()!=null && !branchSet().has(n.id) ? 0.28 : 1"
+         (mouseenter)="highlight.set(n.id)" (mouseleave)="highlight.set(null)"
          (click)="onNodeClick(n.id)" (dblclick)="onNodeDbl(n.id)" (keydown.enter)="setPov(n.id)">
       <div class="avatar" [style.width.px]="n.size" [style.height.px]="n.size"
            [style.font-size.px]="round(n.size*0.3)" [style.background]="avatarBg(n.cls)">
@@ -78,11 +82,7 @@
 
 <div class="caption" *ngIf="svc.signedIn() && view().nodes.length">
   <span>{{ t('panHint') }}</span>
-  <span class="legend">
-    <span><i class="dot m"></i>{{ t('mainFamily') }}</span>
-    <span><i class="dot e"></i>{{ t('extended') }}</span>
-    <span class="tag-offline" *ngIf="svc.ready() && !svc.online()">{{ t('offline') }}</span>
-  </span>
+  <span class="tag-offline" *ngIf="svc.ready() && !svc.online()">{{ t('offline') }}</span>
 </div>
 
 <div class="toast" *ngIf="svc.lastError() as err">

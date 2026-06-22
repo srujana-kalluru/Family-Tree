@@ -47,7 +47,8 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .viewport{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
 .wires{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
 
-.node{position:absolute;width:110px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;outline:none}
+.node{position:absolute;width:110px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;outline:none;transition:opacity .15s}
+.wires line{transition:stroke-width .15s,stroke-opacity .15s,stroke .15s}
 .node .avatar{transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s}
 .node:hover{z-index:5}
 .node:hover .avatar{transform:translateY(-3px)}
@@ -70,10 +71,6 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .caption{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:14px;
   background:rgba(255,255,255,.8);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);
   padding:8px 16px;border-radius:980px;font-size:12.5px;color:var(--text2);box-shadow:var(--shadow-sm)}
-.legend{display:inline-flex;gap:14px;align-items:center}
-.legend span{display:inline-flex;gap:6px;align-items:center;font-weight:500}
-.dot{width:9px;height:9px;border-radius:50%}
-.dot.m{background:var(--main)} .dot.e{background:var(--ext)}
 .tag-offline{color:#bf7400;font-weight:600}
 
 /* Zoom */

@@ -8,7 +8,7 @@ import { DataService } from './data/data.service';
 import { TreeGraph } from './core/tree-graph';
 import { buildView, AV, NODE_W } from './core/layout';
 import { buildViewElk } from './core/layout-elk';
-import { Lang, Person, TreeView } from './core/models';
+import { Lang, Person, TreeView, Wire } from './core/models';
 import { dispName } from './core/translit';
 import { tr } from './core/i18n';
 
@@ -54,6 +54,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   connB = signal<number | null>(null);
   connPick = signal<'a' | 'b' | null>(null);
   connQuery = signal('');
+  highlight = signal<number | null>(null);
 
   graph = computed(() => new TreeGraph(this.svc.data()));
   view = signal<TreeView>(EMPTY_VIEW);
@@ -83,6 +84,15 @@ export class AppComponent implements OnInit, AfterViewInit {
   connPaths = computed(() => {
     const a = this.connA(), b = this.connB();
     return a != null && b != null ? this.graph().connectionPaths(a, b) : [];
+  });
+  /** The hovered person's whole branch: their ancestors, descendants, self and spouse(s). */
+  branchSet = computed(() => {
+    const h = this.highlight();
+    if (h == null) return new Set<number>();
+    const g = this.graph();
+    const s = new Set<number>([h, ...g.ancestors(h), ...g.descendants(h)]);
+    g.spouses(h).forEach(sp => s.add(sp.id));
+    return s;
   });
   /** Case-insensitive name search + first-name sort, shared by the viewpoint and link pickers. */
   private matchSort(people: Person[], q: string): Person[] {
@@ -137,6 +147,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   nameOf(id: number): string { const p = this.byId(id); return p ? dispName(p.first_name, this.lang()) : ''; }
   lastNameOf(id: number): string { const p = this.byId(id); return p?.last_name ? dispName(p.last_name, this.lang()) : ''; }
   photoOf(id: number): string | null { return this.byId(id)?.photo_url ?? null; }
+  wireHi(w: Wire): boolean { return !!w.ids && w.ids.every(id => this.branchSet().has(id)); }
   round(n: number): number { return Math.round(n); }
   grad(id: number): string {
     let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;

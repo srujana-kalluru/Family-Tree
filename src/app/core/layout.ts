@@ -150,13 +150,14 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
     const A = anchor(m.partner1_id), B = anchor(m.partner2_id); if (!A || !B) return;
     const L = A.cx <= B.cx ? A : B, R = A.cx <= B.cx ? B : A;
     const main = (m.partner1_id === pov || m.partner2_id === pov);
+    const mids = [m.partner1_id, m.partner2_id];
     if (Math.abs(L.cy - R.cy) < 1) {
-      wires.push({ x1: L.right, y1: L.cy, x2: R.left, y2: R.cy, main });   // same generation: straight horizontal
+      wires.push({ x1: L.right, y1: L.cy, x2: R.left, y2: R.cy, main, ids: mids });   // same generation: straight horizontal
     } else {
       const midX = (L.right + R.left) / 2;                                 // partners on different generations: orthogonal elbow, never a diagonal
-      wires.push({ x1: L.right, y1: L.cy, x2: midX, y2: L.cy, main });
-      wires.push({ x1: midX, y1: L.cy, x2: midX, y2: R.cy, main });
-      wires.push({ x1: midX, y1: R.cy, x2: R.left, y2: R.cy, main });
+      wires.push({ x1: L.right, y1: L.cy, x2: midX, y2: L.cy, main, ids: mids });
+      wires.push({ x1: midX, y1: L.cy, x2: midX, y2: R.cy, main, ids: mids });
+      wires.push({ x1: midX, y1: R.cy, x2: R.left, y2: R.cy, main, ids: mids });
     }
   });
 
@@ -188,11 +189,11 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
   });
   famArr.forEach(f => {
     const main = f.pars.includes(pov);
-    wires.push({ x1: f.px, y1: f.dropTop, x2: f.px, y2: f.busY, main });
+    wires.push({ x1: f.px, y1: f.dropTop, x2: f.px, y2: f.busY, main, ids: f.pars });
     const xs = f.kids.map(id => pos[id].x);
     const minXk = Math.min(f.px, ...xs), maxXk = Math.max(f.px, ...xs);
-    wires.push({ x1: minXk, y1: f.busY, x2: maxXk, y2: f.busY, main });
-    f.kids.forEach(id => { const a = anchor(id)!; wires.push({ x1: a.cx, y1: f.busY, x2: a.cx, y2: a.top, main }); });
+    wires.push({ x1: minXk, y1: f.busY, x2: maxXk, y2: f.busY, main, ids: f.pars });
+    f.kids.forEach(id => { const a = anchor(id)!; wires.push({ x1: a.cx, y1: f.busY, x2: a.cx, y2: a.top, main, ids: [id] }); });
   });
 
   let box: BoxRect | null = null;

@@ -66,6 +66,13 @@ export class TreeGraph {
     up(id);
     return out;
   }
+  /** All descendants of a person (cycle-safe). */
+  descendants(id: number): Set<number> {
+    const out = new Set<number>();
+    const down = (x: number) => this.children(x).forEach(c => { if (!out.has(c.id)) { out.add(c.id); down(c.id); } });
+    down(id);
+    return out;
+  }
   /** Blood relatives up to great-grandparents + their descendants, every blood relative's spouse, and the POV's spouse's parents. */
   bloodAndSpouse(povId: number): Set<number> {
     const anc = new Set<number>([povId]);
