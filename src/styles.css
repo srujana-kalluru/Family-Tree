@@ -101,6 +101,8 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .scrim{position:fixed;inset:0;z-index:50;background:rgba(20,24,40,.32);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fade .18s ease}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .modal{width:min(420px,94vw);max-height:88vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(20,28,50,.34);padding:24px;animation:pop .26s cubic-bezier(.2,.8,.3,1)}
+.modal.wide{width:96vw;max-width:1600px}
+.modal.wide .connsegscroll{max-height:74vh}
 @keyframes pop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
 .modal h2{margin:0 0 4px;font-size:20px;font-weight:600;letter-spacing:-.02em}
 .modal .sub{color:var(--text2);font-size:13.5px;margin:0 0 16px}

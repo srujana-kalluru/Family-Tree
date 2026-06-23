@@ -37,7 +37,6 @@
          [attr.aria-label]="n.label"
          [class.pov]="n.cls==='pov'" [class.main]="n.cls==='main'" [class.ext]="n.cls==='ext'"
          [style.left.px]="n.x - NODE_W/2" [style.top.px]="n.y + AV/2 - n.size/2"
-         [style.opacity]="highlight()!=null && !branchSet().has(n.id) ? 0.28 : 1"
          (mouseenter)="highlight.set(n.id)" (mouseleave)="highlight.set(null)"
          (click)="onNodeClick(n.id)" (dblclick)="onNodeDbl(n.id)" (keydown.enter)="setPov(n.id)">
       <div class="avatar" [style.width.px]="n.size" [style.height.px]="n.size"
@@ -205,7 +204,7 @@
 </div>
 
 <div class="scrim" *ngIf="connOpen()" (click)="onScrim($event, 'conn')">
-  <div class="modal">
+  <div class="modal wide">
     <h2>{{ t('connTitle') }}</h2>
     <div class="connslots">
       <button class="connslot" [class.on]="connPick()==='a'" (click)="startConnPick('a')">{{ connA()!=null ? nameOf(connA()!) : t('selectPerson') }}</button>
