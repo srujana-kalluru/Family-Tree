@@ -147,7 +147,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (
       const dv = m.map(x => dx[x]); const ov = m.map(id => ord[id] ?? 0.5);
       units.push({ m, d: dv.reduce((a, b) => a + b, 0) / dv.length, ord: ov.reduce((a, b) => a + b, 0) / ov.length });
     });
-    units.sort((a, b) => (a.ord - b.ord) || (a.d - b.d));   // gender pedigree decides order (male lineages left, female right); barycentre only fine-tunes spacing
+    units.sort((a, b) => (a.d - b.d) || (a.ord - b.ord));   // cluster each unit where its family pulls it (barycentre); the gender pedigree (male-left) only breaks ties
     let cursor = -Infinity; let prevLast: number | null = null; const placed: [number, number][] = [];
     units.forEach(u => {
       const off: number[] = [0];
