@@ -2,7 +2,11 @@ import { Lang, PositionedNode, Wire, BoxRect, TreeView, NodeClass } from './mode
 import { TreeGraph } from './tree-graph';
 import { dispName, initialsOf } from './translit';
 
-export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 94, FAM_GAP = 66, COL = 160, ROW = 220, MARGIN = 110, IN_LAW_GAP = 110;
+export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 94, ROW = 220, MARGIN = 110, GUTTER = 26, BOX_PAD = 28;
+
+/** Fallback px width of a name capsule when no exact text measurer is supplied (node/tests).
+ *  In the browser the component passes a canvas-based measurer so spacing matches the real rendered names. */
+function estimateNameWidth(label: string): number { return label.length * 8 + 26; }
 
 interface Anchor { cx: number; top: number; bottom: number; cy: number; left: number; right: number; }
 
@@ -60,11 +64,18 @@ function genderOrder(graph: TreeGraph, pov: number, inV: (id: number) => boolean
 }
 
 /** Pure layout: turns the graph + viewpoint into positioned nodes, connector wires and the immediate-family box. */
-export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
+export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (label: string) => number): TreeView {
   const people = graph.data.people;
   const visible = graph.bloodAndSpouse(pov);
   const famSet = graph.immediateFamily(pov);
   const inV = (id: number) => visible.has(id);
+  // Spacing is derived from what each node actually draws - its avatar size and its (measured) name-capsule width -
+  // so nothing is hardcoded: short names pack tight, long names get room, and it all recomputes whenever the tree changes.
+  const nameW = measure ?? estimateNameWidth;
+  const avSize = (id: number) => id === pov ? S_POV : (famSet.has(id) ? S_MAIN : S_EXT);
+  const hwCache = new Map<number, number>();
+  const halfW = (id: number) => { let v = hwCache.get(id); if (v == null) { v = Math.max(avSize(id) / 2, nameW(dispName(graph.byId(id)?.first_name ?? '', lang)) / 2); hwCache.set(id, v); } return v; };
+  const minGap = (a: number, b: number) => halfW(a) + halfW(b) + GUTTER + (famSet.has(a) !== famSet.has(b) ? BOX_PAD : 0);   // clears both nodes; +box padding only across the family-box edge
   const P = (id: number) => graph.parents(id).filter(p => inV(p.id));
   const C = (id: number) => graph.children(id).filter(c => inV(c.id));
   const S = (id: number) => graph.spouses(id).filter(s => inV(s.id));
@@ -91,7 +102,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   vpeople.forEach(p => { if (lvl[p.id] != null) rows[lvl[p.id]].push(p.id); });
 
   const x: Record<number, number> = {};
-  rows.forEach(row => row.forEach((id, i) => x[id] = i * COL));
+  rows.forEach(row => { let cx = 0; row.forEach((id, i) => { if (i) cx += minGap(row[i - 1], id); x[id] = cx; }); });   // seed each row at minimum spacing
 
   const placeRow = (ri: number) => {
     const row = rows[ri]; if (!row.length) return;
@@ -137,20 +148,15 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
       units.push({ m, d: dv.reduce((a, b) => a + b, 0) / dv.length, ord: ov.reduce((a, b) => a + b, 0) / ov.length });
     });
     units.sort((a, b) => (a.ord - b.ord) || (a.d - b.d));   // gender pedigree decides order (male lineages left, female right); barycentre only fine-tunes spacing
-    let cursor = -Infinity; let prevFam: boolean | null = null; const placed: [number, number][] = [];
+    let cursor = -Infinity; let prevLast: number | null = null; const placed: [number, number][] = [];
     units.forEach(u => {
-      const uFam = u.m.some(id => famSet.has(id));
-      const gap = (prevFam !== null && uFam !== prevFam) ? COL + FAM_GAP : COL;
       const off: number[] = [0];
-      for (let i = 1; i < u.m.length; i++) {
-        const wide = famSet.has(u.m[i - 1]) !== famSet.has(u.m[i]);   // nuclear member meets an in-law: widen so the in-law clears the box
-        off.push(off[i - 1] + (wide ? COL + IN_LAW_GAP : COL));
-      }
+      for (let i = 1; i < u.m.length; i++) off.push(off[i - 1] + minGap(u.m[i - 1], u.m[i]));   // each member spaced by its own + neighbour's width
       const w = off[off.length - 1];
       let start = u.d - w / 2;
-      if (start < cursor + gap) start = cursor + gap;
+      if (prevLast != null) start = Math.max(start, cursor + minGap(prevLast, u.m[0]));   // never overlap the previous unit
       u.m.forEach((id, i) => placed.push([id, start + off[i]]));
-      cursor = start + w; prevFam = uFam;
+      cursor = start + w; prevLast = u.m[u.m.length - 1];
     });
     const meanD = units.reduce((a, u) => a + u.d * u.m.length, 0) / row.length;
     const meanP = placed.reduce((a, p) => a + p[1], 0) / placed.length;
@@ -164,11 +170,11 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang): TreeView {
   for (let ri = 0; ri < rows.length; ri++) placeRow(ri);   // final top-down pass: children settle under their parents' midpoint (straight drops)
 
   let minX = Infinity, maxX = -Infinity;
-  vpeople.forEach(p => { if (lvl[p.id] == null) return; minX = Math.min(minX, x[p.id]); maxX = Math.max(maxX, x[p.id]); });
+  vpeople.forEach(p => { if (lvl[p.id] == null) return; minX = Math.min(minX, x[p.id] - halfW(p.id)); maxX = Math.max(maxX, x[p.id] + halfW(p.id)); });   // extents include each node's real width
   if (!isFinite(minX)) { minX = 0; maxX = 0; }
   const pos: Record<number, { x: number; y: number }> = {};
   vpeople.forEach(p => { if (lvl[p.id] == null) return; pos[p.id] = { x: x[p.id] - minX + MARGIN, y: lvl[p.id] * ROW + MARGIN }; });
-  const width = (maxX - minX) + MARGIN * 2 + NODE_W, height = maxL * ROW + MARGIN * 2 + 120;
+  const width = (maxX - minX) + MARGIN * 2, height = maxL * ROW + MARGIN * 2 + 120;
 
   return finishView(graph, pov, lang, pos, famSet, width, height);
 }

@@ -33,6 +33,14 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild('stage') stageRef!: ElementRef<HTMLDivElement>;
 
   readonly AV = AV; readonly NODE_W = NODE_W;
+  private nameCtx = (typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null);
+  /** Exact rendered width of a name capsule, so the layout spaces nodes by their real size (not a fixed guess). */
+  private measureName = (label: string): number => {
+    const ctx = this.nameCtx;
+    if (!ctx) return label.length * 8 + 26;
+    ctx.font = '500 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Telugu", sans-serif';
+    return ctx.measureText(label).width + 24;   // + capsule horizontal padding
+  };
   lang = signal<Lang>('en');
   pov = signal<number>(1);
   scale = signal(1); panX = signal(0); panY = signal(0);
@@ -133,8 +141,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     effect(() => {
       const g = this.graph(), p = this.pov(), l = this.lang();
       const apply = (v: TreeView) => { this.view.set(v); this.maybeInitialFit(); };
-      if (USE_ELK) buildViewElk(g, p, l).then(apply).catch(() => apply(buildView(g, p, l)));
-      else apply(buildView(g, p, l));
+      if (USE_ELK) buildViewElk(g, p, l).then(apply).catch(() => apply(buildView(g, p, l, this.measureName)));
+      else apply(buildView(g, p, l, this.measureName));
     });
   }
   private fitted = false;
