@@ -169,12 +169,29 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (
   }
   for (let ri = 0; ri < rows.length; ri++) placeRow(ri);   // final top-down pass: children settle under their parents' midpoint (straight drops)
 
-  let minX = Infinity, maxX = -Infinity;
-  vpeople.forEach(p => { if (lvl[p.id] == null) return; minX = Math.min(minX, x[p.id] - halfW(p.id)); maxX = Math.max(maxX, x[p.id] + halfW(p.id)); });   // extents include each node's real width
-  if (!isFinite(minX)) { minX = 0; maxX = 0; }
+  let minX = Infinity;
+  vpeople.forEach(p => { if (lvl[p.id] == null) return; minX = Math.min(minX, x[p.id] - halfW(p.id)); });
+  if (!isFinite(minX)) minX = 0;
   const pos: Record<number, { x: number; y: number }> = {};
-  vpeople.forEach(p => { if (lvl[p.id] == null) return; pos[p.id] = { x: x[p.id] - minX + MARGIN, y: lvl[p.id] * ROW + MARGIN }; });
-  const width = (maxX - minX) + MARGIN * 2, height = maxL * ROW + MARGIN * 2 + 120;
+  const placedIds = vpeople.filter(p => lvl[p.id] != null);
+  placedIds.forEach(p => { pos[p.id] = { x: x[p.id] - minX + MARGIN, y: lvl[p.id] * ROW + MARGIN }; });
+
+  // Collapse fully-empty vertical bands so loosely-joined branches don't leave huge voids. A band counts as empty
+  // only when NO node in ANY row occupies it; shifting everything to its right by the same amount keeps every drop
+  // vertical and every relative position intact - it just removes space that nothing needs.
+  const spans = placedIds.map(p => [pos[p.id].x - halfW(p.id), pos[p.id].x + halfW(p.id)] as [number, number]).sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  spans.forEach(([l, r]) => { const last = merged[merged.length - 1]; if (last && l <= last[1] + 1) last[1] = Math.max(last[1], r); else merged.push([l, r]); });
+  const MAX_GAP = 72;   // most empty space we ever keep between two separate branches
+  const cuts: { at: number; by: number }[] = [];
+  for (let i = 1; i < merged.length; i++) { const g = merged[i][0] - merged[i - 1][1]; if (g > MAX_GAP) cuts.push({ at: merged[i][0], by: g - MAX_GAP }); }
+  if (cuts.length) placedIds.forEach(p => { const x0 = pos[p.id].x; let d = 0; for (const c of cuts) if (x0 >= c.at) d += c.by; pos[p.id].x = x0 - d; });
+
+  let lo = Infinity, hi = -Infinity;
+  placedIds.forEach(p => { lo = Math.min(lo, pos[p.id].x - halfW(p.id)); hi = Math.max(hi, pos[p.id].x + halfW(p.id)); });
+  if (!isFinite(lo)) { lo = 0; hi = 0; }
+  placedIds.forEach(p => pos[p.id].x += MARGIN - lo);
+  const width = (hi - lo) + MARGIN * 2, height = maxL * ROW + MARGIN * 2 + 120;
 
   return finishView(graph, pov, lang, pos, famSet, width, height);
 }
