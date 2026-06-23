@@ -17,6 +17,6 @@ export interface TreeData { people: Person[]; marriages: Marriage[]; parentChild
 export type Lang = 'en' | 'te';
 export type NodeClass = 'pov' | 'main' | 'ext';
 export interface PositionedNode { id: number; x: number; y: number; size: number; cls: NodeClass; label: string; initials: string; photo?: string | null; }
-export interface Wire { x1: number; y1: number; x2: number; y2: number; main: boolean; ids?: number[]; kind?: 'mar' | 'drop' | 'bus' | 'kid'; pars?: number[]; kids?: number[]; kid?: number; }
+export interface Wire { x1: number; y1: number; x2: number; y2: number; main: boolean; ids?: number[]; kind?: 'mar' | 'drop' | 'bus' | 'kid'; pars?: number[]; kids?: number[]; kid?: number; hops?: number[]; }
 export interface BoxRect { x: number; y: number; w: number; h: number; }
 export interface TreeView { nodes: PositionedNode[]; wires: Wire[]; box: BoxRect | null; width: number; height: number; pos: Record<number, { x: number; y: number }>; }

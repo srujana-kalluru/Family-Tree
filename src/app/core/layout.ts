@@ -279,6 +279,19 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
     box = { x: x1 - padX, y: y1 - padTop, w: (x2 - x1) + padX * 2, h: (y2 - y1) + padTop + padBot };
   }
 
+  // Wire jumps: where a horizontal connector crosses a vertical one at an interior point (a true crossing, not a
+  // junction), tag the horizontal wire so it can be drawn hopping over the vertical with a small semicircle.
+  const verts = wires.filter(w => Math.abs(w.x1 - w.x2) < 1);
+  wires.filter(w => Math.abs(w.y1 - w.y2) < 1).forEach(h => {
+    const y = h.y1, lo = Math.min(h.x1, h.x2), hi = Math.max(h.x1, h.x2);
+    const hx: number[] = [];
+    verts.forEach(v => {
+      const vlo = Math.min(v.y1, v.y2), vhi = Math.max(v.y1, v.y2);
+      if (v.x1 > lo + 1 && v.x1 < hi - 1 && y > vlo + 1 && y < vhi - 1) hx.push(v.x1);
+    });
+    if (hx.length) h.hops = [...new Set(hx)].sort((a, b) => a - b);
+  });
+
   return { nodes, wires, box, width, height, pos };
 }
 

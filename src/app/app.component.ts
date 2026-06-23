@@ -123,6 +123,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     const g = this.graph();
     return g.children(a).some(c => B.has(c.id) && g.parents(c.id).some(p => p.id === b));
   }
+  /** SVG path for a wire: a plain segment, or - where it crosses other lines - a path that hops over them with small semicircles. */
+  wirePath(w: Wire): string {
+    if (!w.hops?.length) return `M${w.x1} ${w.y1}L${w.x2} ${w.y2}`;
+    const y = w.y1, r = 5, lo = Math.min(w.x1, w.x2), hi = Math.max(w.x1, w.x2);
+    let d = `M${lo} ${y}`;
+    for (const hx of w.hops) d += `L${hx - r} ${y}A${r} ${r} 0 0 1 ${hx + r} ${y}`;   // little raised semicircle up and over the crossing
+    return d + `L${hi} ${y}`;
+  }
   /** Case-insensitive name search + first-name sort, shared by the viewpoint and link pickers. */
   private matchSort(people: Person[], q: string): Person[] {
     return people
