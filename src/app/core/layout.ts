@@ -82,17 +82,31 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (
   const vpeople = people.filter(p => inV(p.id));
   const ord = genderOrder(graph, pov, inV);   // male lineages sort left, female lineages right (recursive)
 
-  const lvl: Record<number, number> = {}; const seen = new Set<number>();
-  const bfs = (start: number) => {
-    const q = [start]; seen.add(start); lvl[start] = 0;
+  // Generation = altitude. Level each family by parent-child ONLY (a parent is always exactly one row above each
+  // child), so every same-generation blood relative lands on the same row. Then align the separate families through
+  // marriages. A marriage WITHIN one family (a cousin/uncle consanguineous marriage) is skipped, so each partner
+  // keeps their own blood generation and the union is drawn as an elbow rather than dragging anyone off their row.
+  const lvl: Record<number, number> = {}; const comp: Record<number, number> = {}; const members: number[][] = [];
+  const seen = new Set<number>();
+  const blood = (start: number, c: number) => {
+    const q = [start]; seen.add(start); lvl[start] = 0; comp[start] = c; members[c] = [start];
     while (q.length) {
       const id = q.shift()!;
-      S(id).forEach(s => { if (!seen.has(s.id)) { seen.add(s.id); lvl[s.id] = lvl[id]; q.push(s.id); } });
-      P(id).forEach(p => { if (!seen.has(p.id)) { seen.add(p.id); lvl[p.id] = lvl[id] - 1; q.push(p.id); } });
-      C(id).forEach(c => { if (!seen.has(c.id)) { seen.add(c.id); lvl[c.id] = lvl[id] + 1; q.push(c.id); } });
+      P(id).forEach(p => { if (!seen.has(p.id)) { seen.add(p.id); lvl[p.id] = lvl[id] - 1; comp[p.id] = c; members[c].push(p.id); q.push(p.id); } });
+      C(id).forEach(k => { if (!seen.has(k.id)) { seen.add(k.id); lvl[k.id] = lvl[id] + 1; comp[k.id] = c; members[c].push(k.id); q.push(k.id); } });
     }
   };
-  vpeople.forEach(p => { if (!seen.has(p.id)) bfs(p.id); });
+  let nc = 0;
+  vpeople.forEach(p => { if (!seen.has(p.id)) { blood(p.id, nc); nc++; } });
+  const anchored = new Set<number>([0]);
+  for (let pass = 0; pass <= nc; pass++) {
+    graph.data.marriages.forEach(m => {
+      const a = m.partner1_id, b = m.partner2_id;
+      if (!inV(a) || !inV(b) || comp[a] == null || comp[b] == null || comp[a] === comp[b]) return;
+      if (anchored.has(comp[a]) && !anchored.has(comp[b])) { const cb = comp[b], d = lvl[a] - lvl[b]; members[cb].forEach(id => lvl[id] += d); anchored.add(cb); }
+      else if (anchored.has(comp[b]) && !anchored.has(comp[a])) { const ca = comp[a], d = lvl[b] - lvl[a]; members[ca].forEach(id => lvl[id] += d); anchored.add(ca); }
+    });
+  }
 
   const vals = Object.values(lvl); const minL = vals.length ? Math.min(...vals) : 0;
   Object.keys(lvl).forEach(k => lvl[+k] -= minL);
