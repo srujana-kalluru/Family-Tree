@@ -157,7 +157,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   private maybeInitialFit(): void {
     if (this.fitted || !this.stageRef || !this.view().nodes.length) return;
     this.fitted = true;
-    setTimeout(() => this.fitView(1.95), 0);   // initial load starts ~95% more zoomed-in than fit-to-screen (1.3 x 1.5)
+    setTimeout(() => this.frameOnPov(), 0);   // page load: show the whole family, viewpoint centred
   }
 
   async ngOnInit(): Promise<void> {
@@ -176,7 +176,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const el = this.stageRef.nativeElement;
     el.addEventListener('wheel', this.onWheel, { passive: false });
     el.addEventListener('touchmove', this.onTouchMove, { passive: false });
-    setTimeout(() => this.fitView(1.95), 0);   // initial load starts ~95% more zoomed-in than fit-to-screen (1.3 x 1.5)
+    setTimeout(() => this.frameOnPov(), 0);   // page load: show the whole family, viewpoint centred
   }
 
   t(k: string): string { return tr(k, this.lang()); }
@@ -201,7 +201,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   childrenOf(id: number) { return this.graph().children(id); }
   relWord(rel: Relation): string { return this.t(rel === 'spouse' ? 'spouseLabel' : 'childLabel'); }
 
-  setPov(id: number): void { this.pov.set(id); try { localStorage.setItem('ft_pov', String(id)); } catch { /* storage unavailable */ } setTimeout(() => this.centerOn(id), 0); }
+  setPov(id: number): void { this.pov.set(id); try { localStorage.setItem('ft_pov', String(id)); } catch { /* storage unavailable */ } setTimeout(() => this.frameOnPov(), 0); }
   onNodeClick(id: number): void { if (this.clickTimer) clearTimeout(this.clickTimer); this.clickTimer = setTimeout(() => this.setPov(id), 220); }
   onNodeDbl(id: number): void { if (this.clickTimer) clearTimeout(this.clickTimer); if (this.svc.canEdit()) this.openEdit(id); }
 
@@ -259,6 +259,19 @@ export class AppComponent implements OnInit, AfterViewInit {
     const sc = this.scale();
     this.panX.set(st.clientWidth / 2 - p.x * sc);
     this.panY.set(st.clientHeight / 2 - (p.y + AV / 2) * sc);
+  }
+  /** Default framing: show the whole visible family with the viewpoint horizontally centred. Used on page load
+   *  and whenever the viewpoint changes - it zooms out as much as needed so nothing is cut off. */
+  frameOnPov(): void {
+    const st = this.stageRef?.nativeElement; if (!st) return;
+    const v = this.view(); if (!v.width || !v.height) return;
+    const vw = st.clientWidth, vh = st.clientHeight, PAD = 36;
+    const px = v.pos[this.pov()]?.x ?? v.width / 2;
+    const reach = Math.max(px, v.width - px);                       // distance from the POV to the farther horizontal edge
+    const s = Math.max(0.12, Math.min(vw / (2 * reach + PAD * 2), vh / (v.height + PAD * 2), 1.1));
+    this.scale.set(s);
+    this.panX.set(vw / 2 - px * s);                                 // POV centred left-to-right
+    this.panY.set((vh - v.height * s) / 2);                         // whole height centred vertically
   }
 
   addPersonBtn(): void { this.openAddRoot(); }
@@ -328,7 +341,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const gn = this.byId(id)?.gender;
     return this.t(gn === 'male' ? male : gn === 'female' ? female : neutral);
   }
-  switchLang(l: Lang): void { this.lang.set(l); document.body.classList.toggle('te', l === 'te'); setTimeout(() => this.centerOn(this.pov()), 0); }
+  switchLang(l: Lang): void { this.lang.set(l); document.body.classList.toggle('te', l === 'te'); setTimeout(() => this.frameOnPov(), 0); }
 
   async signInGoogle(): Promise<void> { await this.svc.signInWithGoogle(); }
   async signOut(): Promise<void> { await this.svc.signOut(); }
