@@ -77,7 +77,7 @@ export class TreeGraph {
   bloodAndSpouse(povId: number): Set<number> {
     const anc = new Set<number>([povId]);
     const up = (id: number, depth: number) => {
-      if (depth >= 3) return;   // cap the ancestor line at great-grandparents (3 levels up)
+      if (depth >= 4) return;   // cap the ancestor line at great-great-grandparents (4 levels up)
       this.parents(id).forEach(p => { if (!anc.has(p.id)) { anc.add(p.id); up(p.id, depth + 1); } });
     };
     up(povId, 0);

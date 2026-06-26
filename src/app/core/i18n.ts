@@ -19,6 +19,7 @@ const M: Record<string, Record<Lang, string>> = {
   save: { en: 'Save', te: 'భద్రపరచు' },
   done: { en: 'Done', te: 'పూర్తయింది' },
   reposition: { en: 'Drag to reposition · slider to zoom', te: 'జరపడానికి లాగండి · జూమ్‌కు స్లయిడర్' },
+  people: { en: 'people', te: 'వ్యక్తులు' },
   quickAdd: { en: 'Quick add relative', te: 'బంధువుని చేర్చు' },
   spouseLabel: { en: 'Spouse', te: 'జీవిత భాగస్వామి' },
   childLabel: { en: 'Child', te: 'సంతానం' },

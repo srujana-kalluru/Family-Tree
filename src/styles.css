@@ -23,6 +23,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;letter-spacing:-.01em}
 .brand .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,#1f9dff,#0060df);
   display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,113,227,.35)}
+.hcount{font-size:12px;font-weight:600;color:var(--text2);background:var(--field);padding:3px 10px;border-radius:980px;letter-spacing:0}
 .spacer{flex:1}
 .hbtn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);background:#fff;color:var(--text);
   height:34px;padding:0 14px;border-radius:980px;font-size:13.5px;font-weight:500;cursor:pointer;
