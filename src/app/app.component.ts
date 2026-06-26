@@ -203,8 +203,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   /** Canvas avatar colour by role: POV dark silver, family lighter blue, extended neutral. */
   avatarBg(cls: string): string {
     if (cls === 'pov') return 'linear-gradient(150deg,#5f6675 0%,#41454f 55%,#2c2f37 100%)';
-    if (cls === 'main') return 'linear-gradient(160deg,#2b7de4,#1657b8)';
-    return 'linear-gradient(160deg,#737c8f,#565d6e)';
+    if (cls === 'main') return 'linear-gradient(160deg,#1f6fd6,#0f4fa6)';
+    return 'linear-gradient(160deg,#525b6b,#363d4a)';
   }
   parentsOf(id: number) { return this.graph().parents(id); }
   spousesOf(id: number) { return this.graph().spouses(id); }

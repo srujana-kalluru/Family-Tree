@@ -31,7 +31,7 @@
             rx="28" ry="28" fill="rgba(0,113,227,0.05)" stroke="rgba(0,113,227,0.45)" stroke-width="2" stroke-dasharray="7 6"></rect>
       <path *ngFor="let w of view().wires" [attr.d]="wirePath(w)" fill="none"
             [attr.stroke]="highlight()!=null ? (wireHi(w) ? 'var(--accent)' : 'var(--ext)') : (w.main ? 'var(--main)' : 'var(--ext)')"
-            [attr.stroke-width]="wireHi(w) ? 4.5 : (w.main ? 2.4 : 1.8)"
+            [attr.stroke-width]="wireHi(w) ? 4.8 : (w.main ? 2.8 : 2.2)"
             [attr.stroke-opacity]="highlight()!=null && !wireHi(w) ? 0.12 : 1" stroke-linecap="round"></path>
     </svg>
 
