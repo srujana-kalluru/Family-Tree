@@ -27,8 +27,6 @@
     <svg class="wires" [attr.width]="view().width" [attr.height]="view().height">
       <rect *ngFor="let b of genBands()" x="0" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h"
             [attr.fill]="b.shade ? 'rgba(20,28,50,0.03)' : 'transparent'"></rect>
-      <rect *ngIf="view().box as b" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h"
-            rx="28" ry="28" fill="rgba(0,113,227,0.05)" stroke="rgba(0,113,227,0.45)" stroke-width="2" stroke-dasharray="7 6"></rect>
       <path *ngFor="let w of view().wires" [attr.d]="wirePath(w)" fill="none"
             [attr.stroke]="highlight()!=null ? (wireHi(w) ? 'var(--accent)' : 'var(--ext)') : (w.main ? 'var(--main)' : 'var(--ext)')"
             [attr.stroke-width]="wireHi(w) ? 4.8 : (w.main ? 2.8 : 2.2)"
