@@ -132,6 +132,23 @@
 
     <div *ngIf="isEdit()">
       <label>{{ t('photo') }}</label>
+      <div class="cropper" *ngIf="cropSrc() as csrc; else photoNormal">
+        <div class="cropframe" (mousedown)="cropDragStart($event)" (touchstart)="cropDragStart($event)"
+             (window:mousemove)="cropDragMove($event)" (window:mouseup)="cropDragEnd()"
+             (window:touchmove)="cropDragMove($event)" (window:touchend)="cropDragEnd()">
+          <img [src]="csrc" draggable="false"
+               [style.transform]="'translate(' + cropX() + 'px,' + cropY() + 'px) scale(' + cropZoom() + ')'" />
+          <div class="cropring"></div>
+        </div>
+        <input type="range" class="cropzoom" [attr.min]="cropZmin" [attr.max]="cropZmin*4" [attr.step]="cropZmin*0.02"
+               [value]="cropZoom()" (input)="setCropZoom(+$any($event.target).value)" />
+        <div class="crophint">{{ t('reposition') }}</div>
+        <div class="photobtns">
+          <button type="button" class="chip up" (click)="cropDone()">{{ t('done') }}</button>
+          <button type="button" class="chip" (click)="cropCancel()">{{ t('cancel') }}</button>
+        </div>
+      </div>
+      <ng-template #photoNormal>
       <div class="photoedit">
         <div class="photoprev">
           <img *ngIf="fPhoto()" [src]="fPhoto()" alt="" />
@@ -146,6 +163,7 @@
           </div>
         </div>
       </div>
+      </ng-template>
 
       <label>{{ t('relationships') }}</label>
       <div class="relrow" *ngIf="parentsOf(editId()).length">

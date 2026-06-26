@@ -206,7 +206,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     if (cls === 'main') return 'linear-gradient(160deg,#1f6fd6,#0f4fa6)';
     return 'linear-gradient(160deg,#525b6b,#363d4a)';
   }
-  /** Read a chosen image file, shrink it to a 256px thumbnail, and store it inline - no URL hosting needed. */
+  // --- Circular photo cropper (pan + zoom, exported to a 256px thumbnail) ---
+  readonly CROP_FRAME = 240;
+  cropSrc = signal<string | null>(null);
+  cropZoom = signal(1); cropX = signal(0); cropY = signal(0); cropZmin = 1;
+  private cropIW = 1; private cropIH = 1;
+  private cropDrag: { sx: number; sy: number; ox: number; oy: number } | null = null;
+
+  /** Read a chosen image file and open the cropper on it. */
   onPhotoFile(e: Event): void {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -214,19 +221,45 @@ export class AppComponent implements OnInit, AfterViewInit {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const img = new Image();
+      const src = reader.result as string, img = new Image();
       img.onload = () => {
-        const max = 256, scale = Math.min(1, max / Math.max(img.width, img.height));
-        const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
-        const c = document.createElement('canvas'); c.width = w; c.height = h;
-        const ctx = c.getContext('2d'); if (!ctx) return;
-        ctx.drawImage(img, 0, 0, w, h);
-        this.fPhoto.set(c.toDataURL('image/jpeg', 0.82));
+        this.cropIW = img.width; this.cropIH = img.height;
+        const z = this.CROP_FRAME / Math.min(img.width, img.height);   // smallest zoom that still fills the circle
+        this.cropZmin = z; this.cropZoom.set(z);
+        this.cropX.set((this.CROP_FRAME - img.width * z) / 2);
+        this.cropY.set((this.CROP_FRAME - img.height * z) / 2);
+        this.cropSrc.set(src);
       };
-      img.src = reader.result as string;
+      img.src = src;
     };
     reader.readAsDataURL(file);
   }
+  private cropPt(e: MouseEvent | TouchEvent) {
+    const t = (e as TouchEvent).touches?.[0] ?? (e as TouchEvent).changedTouches?.[0];
+    return t ? { x: t.clientX, y: t.clientY } : { x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY };
+  }
+  private clampCrop(x: number, y: number): [number, number] {   // keep the image covering the whole circle
+    const z = this.cropZoom();
+    return [Math.min(0, Math.max(this.CROP_FRAME - this.cropIW * z, x)), Math.min(0, Math.max(this.CROP_FRAME - this.cropIH * z, y))];
+  }
+  cropDragStart(e: MouseEvent | TouchEvent): void { const p = this.cropPt(e); this.cropDrag = { sx: p.x, sy: p.y, ox: this.cropX(), oy: this.cropY() }; e.preventDefault(); }
+  cropDragMove(e: MouseEvent | TouchEvent): void { if (!this.cropDrag) return; const p = this.cropPt(e); const [x, y] = this.clampCrop(this.cropDrag.ox + (p.x - this.cropDrag.sx), this.cropDrag.oy + (p.y - this.cropDrag.sy)); this.cropX.set(x); this.cropY.set(y); }
+  cropDragEnd(): void { this.cropDrag = null; }
+  setCropZoom(z: number): void { const old = this.cropZoom(), f = this.CROP_FRAME / 2; const nx = f - (f - this.cropX()) * z / old, ny = f - (f - this.cropY()) * z / old; this.cropZoom.set(z); const [x, y] = this.clampCrop(nx, ny); this.cropX.set(x); this.cropY.set(y); }
+  cropDone(): void {
+    const src = this.cropSrc(); if (!src) return;
+    const OUT = 256, z = this.cropZoom(), img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = OUT; c.height = OUT;
+      const ctx = c.getContext('2d'); if (!ctx) return;
+      const s = this.CROP_FRAME / z;
+      ctx.drawImage(img, -this.cropX() / z, -this.cropY() / z, s, s, 0, 0, OUT, OUT);   // the circle's square maps to the output
+      this.fPhoto.set(c.toDataURL('image/jpeg', 0.85));
+      this.cropSrc.set(null);
+    };
+    img.src = src;
+  }
+  cropCancel(): void { this.cropSrc.set(null); }
   parentsOf(id: number) { return this.graph().parents(id); }
   spousesOf(id: number) { return this.graph().spouses(id); }
   childrenOf(id: number) { return this.graph().children(id); }
