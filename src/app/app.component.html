@@ -138,11 +138,13 @@
           <span *ngIf="!fPhoto()">{{ (fFirst()[0] || '?').toUpperCase() }}</span>
         </div>
         <div class="photoctl">
-          <input type="text" [ngModel]="fPhoto() || ''" (ngModelChange)="fPhoto.set($event || null)" [placeholder]="t('photoUrl')" [attr.aria-label]="t('photo')" autocomplete="off" />
           <div class="photobtns">
+            <button type="button" class="chip up" (click)="photoFile.click()">{{ t('uploadPhoto') }}</button>
+            <input #photoFile type="file" accept="image/*" hidden (change)="onPhotoFile($event)" />
             <button type="button" class="chip" *ngIf="svc.userPhoto()" (click)="fPhoto.set(svc.userPhoto())">{{ t('useGooglePhoto') }}</button>
             <button type="button" class="chip" *ngIf="fPhoto()" (click)="fPhoto.set(null)">{{ t('removePhoto') }}</button>
           </div>
+          <input type="text" [ngModel]="fPhoto()?.startsWith('data:') ? '' : (fPhoto() || '')" (ngModelChange)="fPhoto.set($event || null)" [placeholder]="t('photoUrl')" [attr.aria-label]="t('photo')" autocomplete="off" />
         </div>
       </div>
 

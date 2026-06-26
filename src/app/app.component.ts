@@ -206,6 +206,27 @@ export class AppComponent implements OnInit, AfterViewInit {
     if (cls === 'main') return 'linear-gradient(160deg,#1f6fd6,#0f4fa6)';
     return 'linear-gradient(160deg,#525b6b,#363d4a)';
   }
+  /** Read a chosen image file, shrink it to a 256px thumbnail, and store it inline - no URL hosting needed. */
+  onPhotoFile(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';   // allow re-picking the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 256, scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const ctx = c.getContext('2d'); if (!ctx) return;
+        ctx.drawImage(img, 0, 0, w, h);
+        this.fPhoto.set(c.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
   parentsOf(id: number) { return this.graph().parents(id); }
   spousesOf(id: number) { return this.graph().spouses(id); }
   childrenOf(id: number) { return this.graph().children(id); }
