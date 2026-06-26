@@ -6,7 +6,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from './data/data.service';
 import { TreeGraph } from './core/tree-graph';
-import { buildView, connectionSegment, AV, NODE_W } from './core/layout';
+import { buildView, connectionSegment, AV, NODE_W, ROW } from './core/layout';
 import { buildViewElk } from './core/layout-elk';
 import { Lang, Person, TreeView, Wire } from './core/models';
 import { dispName } from './core/translit';
@@ -63,10 +63,19 @@ export class AppComponent implements OnInit, AfterViewInit {
   connPick = signal<'a' | 'b' | null>(null);
   connQuery = signal('');
   highlight = signal<number | null>(null);
+  animating = signal(false);   // true briefly while the camera glides on a viewpoint change
+  trackNode = (_: number, n: { id: number }) => n.id;   // reuse DOM nodes so positions can ease
 
   graph = computed(() => new TreeGraph(this.svc.data()));
   view = signal<TreeView>(EMPTY_VIEW);
   transform = computed(() => `translate(${this.panX()}px, ${this.panY()}px) scale(${this.scale()})`);
+  /** Faint alternating background stripe per generation row, so altitude reads at a glance. */
+  genBands = computed(() => {
+    const ns = this.view().nodes, w = this.view().width;
+    if (!ns.length) return [] as { y: number; h: number; w: number; shade: boolean }[];
+    const ys = [...new Set(ns.map(n => n.y))].sort((a, b) => a - b);
+    return ys.map((gy, i) => ({ y: gy + AV / 2 - ROW / 2, h: ROW, w, shade: i % 2 === 1 }));
+  });
   isAdd = computed(() => this.formMode()?.type === 'add');
   isRoot = computed(() => this.formMode()?.type === 'addRoot');
   isEdit = computed(() => this.formMode()?.type === 'edit');
@@ -125,6 +134,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   /** SVG path for a wire: a plain segment, or - where it crosses other lines - a path that hops over them with small semicircles. */
   wirePath(w: Wire): string {
+    if (w.d) return w.d;   // pre-built geometry (e.g. a rounded corner)
     if (!w.hops?.length) return `M${w.x1} ${w.y1}L${w.x2} ${w.y2}`;
     const y = w.y1, r = 5, lo = Math.min(w.x1, w.x2), hi = Math.max(w.x1, w.x2);
     let d = `M${lo} ${y}`;
@@ -201,7 +211,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   childrenOf(id: number) { return this.graph().children(id); }
   relWord(rel: Relation): string { return this.t(rel === 'spouse' ? 'spouseLabel' : 'childLabel'); }
 
-  setPov(id: number): void { this.pov.set(id); try { localStorage.setItem('ft_pov', String(id)); } catch { /* storage unavailable */ } setTimeout(() => this.frameOnPov(), 0); }
+  setPov(id: number): void { this.pov.set(id); try { localStorage.setItem('ft_pov', String(id)); } catch { /* storage unavailable */ } setTimeout(() => this.frameOnPov(true), 0); }
   onNodeClick(id: number): void { if (this.clickTimer) clearTimeout(this.clickTimer); this.clickTimer = setTimeout(() => this.setPov(id), 220); }
   onNodeDbl(id: number): void { if (this.clickTimer) clearTimeout(this.clickTimer); if (this.svc.canEdit()) this.openEdit(id); }
 
@@ -262,9 +272,10 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   /** Default framing: show the whole visible family with the viewpoint horizontally centred. Used on page load
    *  and whenever the viewpoint changes - it zooms out as much as needed so nothing is cut off. */
-  frameOnPov(): void {
+  frameOnPov(animate = false): void {
     const st = this.stageRef?.nativeElement; if (!st) return;
     const v = this.view(); if (!v.width || !v.height) return;
+    if (animate) { this.animating.set(true); setTimeout(() => this.animating.set(false), 560); }
     const vw = st.clientWidth, vh = st.clientHeight, PAD = 36;
     const px = v.pos[this.pov()]?.x ?? v.width / 2;
     const reach = Math.max(px, v.width - px);                       // distance from the POV to the farther horizontal edge
@@ -341,7 +352,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const gn = this.byId(id)?.gender;
     return this.t(gn === 'male' ? male : gn === 'female' ? female : neutral);
   }
-  switchLang(l: Lang): void { this.lang.set(l); document.body.classList.toggle('te', l === 'te'); setTimeout(() => this.frameOnPov(), 0); }
+  switchLang(l: Lang): void { this.lang.set(l); document.body.classList.toggle('te', l === 'te'); setTimeout(() => this.frameOnPov(true), 0); }
 
   async signInGoogle(): Promise<void> { await this.svc.signInWithGoogle(); }
   async signOut(): Promise<void> { await this.svc.signOut(); }

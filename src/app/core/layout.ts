@@ -277,8 +277,15 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
     // visually, but tagging each with its parents+child lets the branch-highlight trace only the bloodline children.
     f.kids.forEach(id => {
       const a = anchor(id)!;
-      wires.push({ x1: f.px, y1: f.busY, x2: a.cx, y2: f.busY, main, kind: 'bus', pars: f.pars, kid: id });   // bus stub to this child
-      wires.push({ x1: a.cx, y1: f.busY, x2: a.cx, y2: a.top, main, kind: 'kid', pars: f.pars, kid: id });     // child vertical
+      const cx = a.cx, r = Math.min(9, Math.abs(cx - f.px), Math.max(0, a.top - f.busY) / 2);
+      if (Math.abs(cx - f.px) < 1 || r < 2) {
+        wires.push({ x1: f.px, y1: f.busY, x2: cx, y2: a.top, main, kind: 'kid', pars: f.pars, kid: id });   // straight drop to a child right below
+      } else {
+        const dir = cx > f.px ? 1 : -1;
+        wires.push({ x1: f.px, y1: f.busY, x2: cx - dir * r, y2: f.busY, main, kind: 'bus', pars: f.pars, kid: id });   // bus stub (stops short of the corner)
+        wires.push({ x1: cx - dir * r, y1: f.busY, x2: cx, y2: f.busY + r, main, kind: 'kid', pars: f.pars, kid: id, d: `M${cx - dir * r} ${f.busY}Q${cx} ${f.busY} ${cx} ${f.busY + r}` });   // rounded corner
+        wires.push({ x1: cx, y1: f.busY + r, x2: cx, y2: a.top, main, kind: 'kid', pars: f.pars, kid: id });   // child vertical (below the corner)
+      }
     });
   });
 
