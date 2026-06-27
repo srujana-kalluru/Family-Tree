@@ -8,7 +8,7 @@ import { DataService } from './data/data.service';
 import { TreeGraph } from './core/tree-graph';
 import { buildView, connectionSegment, AV, NODE_W, ROW } from './core/layout';
 import { buildViewElk } from './core/layout-elk';
-import { Lang, Person, TreeView, Wire } from './core/models';
+import { Lang, Person, TreeView, Wire, AppUser } from './core/models';
 import { dispName } from './core/translit';
 import { tr } from './core/i18n';
 
@@ -261,6 +261,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   cropCancel(): void { this.cropSrc.set(null); }
   parentsOf(id: number) { return this.graph().parents(id); }
+  /** Resolve an editor UUID to their app_user record (name + email) for the audit line. */
+  editorOf(uuid: string | null | undefined): AppUser | null { return uuid ? (this.svc.users()[uuid] ?? null) : null; }
   spousesOf(id: number) { return this.graph().spouses(id); }
   childrenOf(id: number) { return this.graph().children(id); }
   relWord(rel: Relation): string { return this.t(rel === 'spouse' ? 'spouseLabel' : 'childLabel'); }

@@ -4,13 +4,12 @@ export interface Person {
   last_name?: string | null;
   photo_url?: string | null;
   gender?: 'male' | 'female' | null;
-  created_by_name?: string | null;
-  updated_by_name?: string | null;
-  created_by_email?: string | null;
-  updated_by_email?: string | null;
+  created_by?: string | null;   // auth UUID -> app_user
+  updated_by?: string | null;   // auth UUID -> app_user
   created_at?: string | null;
   updated_at?: string | null;
 }
+export interface AppUser { id: string; name: string | null; email: string | null; }
 export interface Marriage { id: number; partner1_id: number; partner2_id: number; }
 export interface ParentChild { parent_id: number; child_id: number; }
 export interface TreeData { people: Person[]; marriages: Marriage[]; parentChild: ParentChild[]; }
