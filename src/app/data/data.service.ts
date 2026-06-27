@@ -1,11 +1,11 @@
 import { Injectable, signal } from '@angular/core';
 import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
 import { environment } from '../../environments/environment';
-import { TreeData, Person, Marriage, ParentChild, AppUser } from '../core/models';
+import { TreeData, Person, Marriage, ParentChild } from '../core/models';
 
 type Relation = 'spouse' | 'child';
 type Gender = 'male' | 'female' | null;
-const SELECT = 'id,first_name,last_name,photo_url,gender,created_by,updated_by,created_at,updated_at';
+const SELECT = 'id,uuid,email,first_name,last_name,photo_url,gender,created_by,updated_by,created_at,updated_at';
 const EMPTY: TreeData = { people: [], marriages: [], parentChild: [] };
 
 @Injectable({ providedIn: 'root' })
@@ -21,7 +21,6 @@ export class DataService {
   readonly lastError = signal<string | null>(null);
   readonly data = signal<TreeData>({ people: [], marriages: [], parentChild: [] });
   readonly defaultPovId = signal<number | null>(null);
-  readonly users = signal<Record<string, AppUser>>({});   // auth UUID -> editor name/email
 
   constructor() {
     const url = environment.supabaseUrl?.trim();
@@ -33,19 +32,29 @@ export class DataService {
       this.client.auth.onAuthStateChange((_e, session: Session | null) => this.applySession(session));
     }
   }
+  private gFirst = ''; private gLast: string | null = null;
   private applySession(session: Session | null): void {
     this.signedIn.set(!!session);
     this.userEmail.set(session?.user?.email ?? null);
     this.userId.set(session?.user?.id ?? null);
     const meta = session?.user?.user_metadata ?? {};
-    this.userName.set((meta['full_name'] as string) ?? (meta['name'] as string) ?? session?.user?.email ?? null);
+    const full = (meta['full_name'] as string) ?? (meta['name'] as string) ?? '';
+    this.gFirst = (meta['given_name'] as string) ?? (full.split(' ')[0] || '');
+    this.gLast = (meta['family_name'] as string) ?? (full.split(' ').slice(1).join(' ') || null);
+    this.userName.set(full || session?.user?.email || null);
     this.userPhoto.set((meta['avatar_url'] as string) ?? (meta['picture'] as string) ?? null);
-    if (session?.user) this.upsertSelf();
+    if (session?.user) this.ensureSelfPerson();
   }
-  /** Record (or refresh) this signed-in user in app_user so their edits resolve to a name and email. */
-  private async upsertSelf(): Promise<void> {
-    const id = this.userId(); if (!this.client || !id) return;
-    try { await this.client.from('app_user').upsert({ id, name: this.userName(), email: this.userEmail(), updated_at: new Date().toISOString() }); } catch { /* app_user not migrated yet */ }
+  /** On sign-in, ensure this user exists as a person keyed by their auth UUID: first time creates a new person row;
+   *  thereafter the UUID already matches one, so nothing is added. The person table doubles as the editor directory. */
+  private async ensureSelfPerson(): Promise<void> {
+    const uuid = this.userId(); if (!this.client || !uuid) return;
+    try {
+      await this.client.from('person').upsert(
+        { uuid, first_name: this.gFirst || (this.userName() ?? 'Me'), last_name: this.gLast, email: this.userEmail() },
+        { onConflict: 'uuid', ignoreDuplicates: true });
+      await this.load();
+    } catch { /* uuid column not migrated yet */ }
   }
 
   /** Editing requires a signed-in Supabase user - identical locally and in production. */
@@ -81,12 +90,6 @@ export class DataService {
       const s = await this.client.from('app_settings').select('default_person_id').eq('id', 1).maybeSingle();
       this.defaultPovId.set(s.error ? null : ((s.data as { default_person_id: number | null } | null)?.default_person_id ?? null));
     } catch { this.defaultPovId.set(null); }
-    try {   // resilient: the app_user table may not be migrated yet
-      const u = await this.client.from('app_user').select('id,name,email');
-      const map: Record<string, AppUser> = {};
-      ((u.data as AppUser[]) ?? []).forEach(x => { map[x.id] = x; });
-      this.users.set(map);
-    } catch { this.users.set({}); }
     this.ready.set(true);
   }
 

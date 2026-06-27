@@ -192,8 +192,8 @@
       </div>
 
       <div class="audit" *ngIf="byId(editId()) as p">
-        <span *ngIf="editorOf(p.created_by) as u"><b>{{ t('addedBy') }}</b> <span [title]="u.email || ''">{{ u.name || u.email || '—' }}</span></span>
-        <span *ngIf="(p.updated_by !== p.created_by || p.updated_at !== p.created_at) && editorOf(p.updated_by) as u"> · <b>{{ t('modifiedBy') }}</b> <span [title]="u.email || ''">{{ u.name || u.email || '—' }}</span></span>
+        <span *ngIf="editorOf(p.created_by) as u"><b>{{ t('addedBy') }}</b> <span [title]="u.email || ''">{{ u.first_name }}{{ u.last_name ? ' ' + u.last_name : '' }}</span></span>
+        <span *ngIf="(p.updated_by !== p.created_by || p.updated_at !== p.created_at) && editorOf(p.updated_by) as u"> · <b>{{ t('modifiedBy') }}</b> <span [title]="u.email || ''">{{ u.first_name }}{{ u.last_name ? ' ' + u.last_name : '' }}</span></span>
       </div>
 
       <button class="dangerlink" [class.armed]="delArmed()" (click)="confirmDelete()">{{ delArmed() ? t('confirmDelete') : t('deletePerson') }}</button>

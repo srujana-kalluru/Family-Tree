@@ -97,4 +97,6 @@ databaseChangeLog:
             path: changesets/009-editors.sql
             relativeToChangelogFile: true
       rollback:
-        - sql: 'drop table if exists app_user cascade'
+        - sql: 'alter table parent_child drop column if exists updated_by'
+        - sql: 'alter table marriage drop column if exists updated_by'
+        - sql: 'alter table person drop column if exists uuid, drop column if exists email'
