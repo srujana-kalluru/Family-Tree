@@ -1,102 +1,17 @@
 databaseChangeLog:
+  # Single consolidated baseline (squash of the original 001-009 changesets).
+  # Idempotent: a fresh database builds the whole schema here; a database that already has
+  # these objects no-ops on what exists (and fills anything missing), so it is effectively
+  # "already applied". See changesets/001-baseline.sql for details.
   - changeSet:
-      id: 001-schema
+      id: baseline
       author: family-tree
       changes:
         - sqlFile:
-            path: changesets/001-schema.sql
+            path: changesets/001-baseline.sql
             relativeToChangelogFile: true
       rollback:
+        - sql: 'drop table if exists app_settings cascade'
         - sql: 'drop table if exists parent_child cascade'
         - sql: 'drop table if exists marriage cascade'
         - sql: 'drop table if exists person cascade'
-  - changeSet:
-      id: 002-rls
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/002-rls.sql
-            relativeToChangelogFile: true
-      rollback:
-        - sql: 'drop policy if exists "write parent_child" on parent_child'
-        - sql: 'drop policy if exists "write marriage" on marriage'
-        - sql: 'drop policy if exists "write person" on person'
-        - sql: 'drop policy if exists "read parent_child" on parent_child'
-        - sql: 'drop policy if exists "read marriage" on marriage'
-        - sql: 'drop policy if exists "read person" on person'
-        - sql: 'alter table parent_child disable row level security'
-        - sql: 'alter table marriage disable row level security'
-        - sql: 'alter table person disable row level security'
-  - changeSet:
-      id: 003-audit
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/003-audit.sql
-            relativeToChangelogFile: true
-      rollback:
-        - sql: 'alter table person drop column if exists created_by, drop column if exists created_by_email, drop column if exists created_at, drop column if exists updated_by, drop column if exists updated_by_email, drop column if exists updated_at'
-        - sql: 'alter table marriage drop column if exists created_by, drop column if exists created_by_email, drop column if exists created_at'
-        - sql: 'alter table parent_child drop column if exists created_by, drop column if exists created_by_email, drop column if exists created_at'
-  - changeSet:
-      id: 004-name-split
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/004-name-split.sql
-            relativeToChangelogFile: true
-      rollback:
-        - sql: 'alter table person add column if not exists name text'
-        - sql: "update person set name = trim(coalesce(first_name, '') || ' ' || coalesce(last_name, '')) where name is null"
-        - sql: 'alter table person alter column name set not null'
-        - sql: 'alter table person drop column if exists first_name'
-        - sql: 'alter table person drop column if exists last_name'
-  - changeSet:
-      id: 005-settings
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/005-settings.sql
-            relativeToChangelogFile: true
-      rollback:
-        - sql: 'drop policy if exists "write app_settings" on app_settings'
-        - sql: 'drop policy if exists "read app_settings" on app_settings'
-        - sql: 'drop table if exists app_settings cascade'
-  - changeSet:
-      id: 006-photo
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/006-photo.sql
-            relativeToChangelogFile: true
-      rollback:
-        - sql: 'alter table person drop column if exists photo_url'
-  - changeSet:
-      id: 007-gender
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/007-gender.sql
-            relativeToChangelogFile: true
-      rollback:
-        - sql: 'alter table person drop column if exists gender'
-  - changeSet:
-      id: 008-audit-name
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/008-audit-name.sql
-            relativeToChangelogFile: true
-      rollback:
-        - sql: 'alter table person drop column if exists created_by_name, drop column if exists updated_by_name'
-  - changeSet:
-      id: 009-editors
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/009-editors.sql
-            relativeToChangelogFile: true
-      rollback:
-        - sql: 'alter table parent_child drop column if exists updated_by'
-        - sql: 'alter table marriage drop column if exists updated_by'
-        - sql: 'alter table person drop column if exists uuid, drop column if exists email'
