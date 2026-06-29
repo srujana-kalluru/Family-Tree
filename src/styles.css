@@ -181,3 +181,15 @@ input[type=text]:focus,input[type=password]:focus{outline:none;border-color:var(
 .toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;background:#1d1d1f;color:#fff;padding:11px 16px;border-radius:14px;font-size:13.5px;font-weight:500;box-shadow:0 12px 34px rgba(0,0,0,.3);max-width:90vw}
 .toast button{border:none;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;opacity:.7}
 .toast button:hover{opacity:1}
+
+.welcome-icon.lock{background:linear-gradient(160deg,#f6ad55,#dd7724)}
+.userlist{display:flex;flex-direction:column;margin-top:4px}
+.urow{display:flex;align-items:center;gap:10px;padding:12px 2px;border-top:1px solid var(--line)}
+.urow:first-child{border-top:0}
+.uinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.uinfo b{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uemail{font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.utag{font-size:11px;font-weight:600;padding:3px 9px;border-radius:980px;background:var(--field);color:var(--text2);white-space:nowrap}
+.utag.ok{background:rgba(34,160,90,.12);color:#1c7a44}
+.utag.adm{background:rgba(0,113,227,.12);color:var(--accent)}
+.chip.danger:hover{border-color:#e0464a;color:#e0464a;background:rgba(224,70,74,.06)}

@@ -1,11 +1,11 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
 import { environment } from '../../environments/environment';
 import { TreeData, Person, Marriage, ParentChild } from '../core/models';
 
 type Relation = 'spouse' | 'child';
 type Gender = 'male' | 'female' | null;
-const SELECT = 'id,uuid,email,first_name,last_name,photo_url,gender,created_by,updated_by,created_at,updated_at';
+const SELECT = 'id,uuid,email,first_name,last_name,photo_url,gender,approved,is_admin,created_by,updated_by,created_at,updated_at';
 const EMPTY: TreeData = { people: [], marriages: [], parentChild: [] };
 
 @Injectable({ providedIn: 'root' })
@@ -21,6 +21,9 @@ export class DataService {
   readonly lastError = signal<string | null>(null);
   readonly data = signal<TreeData>({ people: [], marriages: [], parentChild: [] });
   readonly defaultPovId = signal<number | null>(null);
+  readonly myPerson = computed(() => { const id = this.userId(); return id ? (this.data().people.find(p => p.uuid === id) ?? null) : null; });
+  readonly approved = computed(() => this.signedIn() && !!this.myPerson()?.approved);
+  readonly isAdmin = computed(() => !!this.myPerson()?.is_admin);
 
   constructor() {
     const url = environment.supabaseUrl?.trim();
@@ -55,7 +58,7 @@ export class DataService {
     } catch { }
   }
 
-  canEdit(): boolean { return this.signedIn(); }
+  canEdit(): boolean { return this.approved(); }
 
   async signInWithGoogle(): Promise<void> {
     if (!this.client) return;
@@ -98,6 +101,18 @@ export class DataService {
     if (error) { this.defaultPovId.set(prev); this.fail(error); }
   }
 
+  async setApproved(uuid: string, value: boolean): Promise<void> {
+    if (!this.client) return;
+    this.mutate(d => { const p = d.people.find(x => x.uuid === uuid); if (p) p.approved = value; });
+    const { error } = await this.client.from('person').update({ approved: value }).eq('uuid', uuid);
+    if (error) { this.fail(error); await this.load(); }
+  }
+  async setAdmin(uuid: string, value: boolean): Promise<void> {
+    if (!this.client) return;
+    this.mutate(d => { const p = d.people.find(x => x.uuid === uuid); if (p) p.is_admin = value; });
+    const { error } = await this.client.from('person').update({ is_admin: value }).eq('uuid', uuid);
+    if (error) { this.fail(error); await this.load(); }
+  }
   clearError(): void { this.lastError.set(null); }
   private fail(msg: unknown): void {
     const text = typeof msg === 'string' ? msg : ((msg as Error)?.message ?? 'Something went wrong.');

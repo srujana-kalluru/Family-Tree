@@ -77,6 +77,20 @@ const M: Record<string, Record<Lang, string>> = {
   addFirst: { en: 'Add the first person', te: 'మొదటి వ్యక్తిని చేర్చండి' },
   welcomeSub: { en: 'Sign in to start building your family tree.', te: 'మీ కుటుంబ వృక్షాన్ని ప్రారంభించడానికి సైన్ ఇన్ చేయండి.' },
   addFirstSub: { en: 'Add the first person to get started.', te: 'ప్రారంభించడానికి మొదటి వ్యక్తిని చేర్చండి.' },
+  pendingTitle: { en: 'Waiting for approval', te: 'అనుమతి కోసం వేచి ఉంది' },
+  pendingSub: { en: 'Your request to open this family tree has been sent to the owner. You will get in as soon as it is approved.', te: 'ఈ కుటుంబ వృక్షాన్ని తెరవడానికి మీ అభ్యర్థన యజమానికి పంపబడింది. ఆమోదం పొందిన వెంటనే మీరు ప్రవేశించవచ్చు.' },
+  members: { en: 'Members', te: 'సభ్యులు' },
+  accessTitle: { en: 'Members & access', te: 'సభ్యులు & యాక్సెస్' },
+  accessSub: { en: 'Approve who can open and edit the tree. Revoke anyone anytime.', te: 'వృక్షాన్ని ఎవరు తెరవవచ్చు, మార్చవచ్చో ఆమోదించండి. ఎవరినైనా ఎప్పుడైనా రద్దు చేయవచ్చు.' },
+  approve: { en: 'Approve', te: 'ఆమోదించు' },
+  revoke: { en: 'Revoke', te: 'రద్దు చేయి' },
+  pendingTag: { en: 'Pending', te: 'వేచి ఉంది' },
+  approvedTag: { en: 'Approved', te: 'ఆమోదించబడింది' },
+  adminTag: { en: 'Admin', te: 'నిర్వాహకుడు' },
+  makeAdmin: { en: 'Make admin', te: 'నిర్వాహకునిగా చేయి' },
+  removeAdmin: { en: 'Remove admin', te: 'నిర్వాహకుని తీసివేయి' },
+  noMembers: { en: 'No one has signed in yet.', te: 'ఇంకా ఎవరూ సైన్ ఇన్ చేయలేదు.' },
+  youTag: { en: 'You', te: 'మీరు' },
 };
 
 export function tr(key: string, lang: Lang): string {

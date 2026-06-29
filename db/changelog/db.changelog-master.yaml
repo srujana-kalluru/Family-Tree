@@ -11,3 +11,44 @@ databaseChangeLog:
         - sql: 'drop table if exists parent_child cascade'
         - sql: 'drop table if exists marriage cascade'
         - sql: 'drop table if exists person cascade'
+  - changeSet:
+      id: access-columns
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/002-access-columns.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql: 'alter table app_settings drop column if exists owner_email'
+        - sql: 'alter table person drop column if exists approved, drop column if exists is_admin'
+  - changeSet:
+      id: access-functions
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/003-access-functions.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+      rollback:
+        - sql: 'drop function if exists public.guard_person_flags cascade'
+        - sql: 'drop function if exists public.bootstrap_owner cascade'
+        - sql: 'drop function if exists public.is_admin cascade'
+        - sql: 'drop function if exists public.is_approved cascade'
+  - changeSet:
+      id: access-policies
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/004-access-policies.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql: 'drop trigger if exists guard_person_flags_trg on person'
+        - sql: 'drop trigger if exists bootstrap_owner_trg on person'
+        - sql: 'drop policy if exists person_select on person'
+        - sql: 'drop policy if exists person_insert on person'
+        - sql: 'drop policy if exists person_update on person'
+        - sql: 'drop policy if exists person_delete on person'
+        - sql: 'drop policy if exists marriage_rw on marriage'
+        - sql: 'drop policy if exists parent_child_rw on parent_child'
+        - sql: 'drop policy if exists app_settings_select on app_settings'
+        - sql: 'drop policy if exists app_settings_write on app_settings'

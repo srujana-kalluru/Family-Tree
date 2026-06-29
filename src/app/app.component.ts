@@ -55,6 +55,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   fGender = signal<'male' | 'female' | null>(null);
   delArmed = signal(false);
   povOpen = signal(false);
+  adminOpen = signal(false);
   povQuery = signal('');
   connOpen = signal(false);
   connA = signal<number | null>(null);
@@ -81,6 +82,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   addRelation = computed<Relation>(() => { const m = this.formMode(); return m && m.type === 'add' ? m.relation : 'child'; });
   addAnchor = computed(() => { const m = this.formMode(); return m && m.type === 'add' ? m.anchor : -1; });
   povList = computed(() => this.matchSort(this.svc.data().people, this.povQuery().toLowerCase()));
+  users = computed(() => this.svc.data().people.filter(p => !!p.uuid));
   linkCandidates = computed(() => {
     const m = this.formMode(); if (!m || m.type !== 'add') return [];
     const g = this.graph(); const exclude = new Set<number>([m.anchor]);

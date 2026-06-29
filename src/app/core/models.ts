@@ -6,6 +6,8 @@ export interface Person {
   last_name?: string | null;
   photo_url?: string | null;
   gender?: 'male' | 'female' | null;
+  approved?: boolean;
+  is_admin?: boolean;
   created_by?: string | null;
   updated_by?: string | null;
   created_at?: string | null;
