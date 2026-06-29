@@ -69,11 +69,7 @@ alter table parent_child add column if not exists created_by_email text        d
 alter table parent_child add column if not exists created_at       timestamptz not null default now();
 alter table parent_child add column if not exists updated_by       uuid        default auth.uid();
 
-do $$ begin
-  if not exists (select 1 from pg_constraint where conname = 'person_uuid_key') then
-    alter table person add constraint person_uuid_key unique (uuid);
-  end if;
-end $$;
+create unique index if not exists person_uuid_key on person(uuid);
 
 create index if not exists idx_marriage_p1 on marriage(partner1_id);
 create index if not exists idx_marriage_p2 on marriage(partner2_id);
