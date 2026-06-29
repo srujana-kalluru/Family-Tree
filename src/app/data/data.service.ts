@@ -5,7 +5,7 @@ import { TreeData, Person, Marriage, ParentChild } from '../core/models';
 
 type Relation = 'spouse' | 'child';
 type Gender = 'male' | 'female' | null;
-const SELECT = 'id,first_name,last_name,photo_url,gender,created_by_name,updated_by_name,created_at,updated_at';
+const SELECT = 'id,uuid,email,first_name,last_name,photo_url,gender,created_by,updated_by,created_at,updated_at';
 const EMPTY: TreeData = { people: [], marriages: [], parentChild: [] };
 
 @Injectable({ providedIn: 'root' })
@@ -32,13 +32,29 @@ export class DataService {
       this.client.auth.onAuthStateChange((_e, session: Session | null) => this.applySession(session));
     }
   }
+  private gFirst = ''; private gLast: string | null = null;
   private applySession(session: Session | null): void {
     this.signedIn.set(!!session);
     this.userEmail.set(session?.user?.email ?? null);
     this.userId.set(session?.user?.id ?? null);
     const meta = session?.user?.user_metadata ?? {};
-    this.userName.set((meta['full_name'] as string) ?? (meta['name'] as string) ?? session?.user?.email ?? null);
+    const full = (meta['full_name'] as string) ?? (meta['name'] as string) ?? '';
+    this.gFirst = (meta['given_name'] as string) ?? (full.split(' ')[0] || '');
+    this.gLast = (meta['family_name'] as string) ?? (full.split(' ').slice(1).join(' ') || null);
+    this.userName.set(full || session?.user?.email || null);
     this.userPhoto.set((meta['avatar_url'] as string) ?? (meta['picture'] as string) ?? null);
+    if (session?.user) this.ensureSelfPerson();
+  }
+  /** On sign-in, ensure this user exists as a person keyed by their auth UUID: first time creates a new person row;
+   *  thereafter the UUID already matches one, so nothing is added. The person table doubles as the editor directory. */
+  private async ensureSelfPerson(): Promise<void> {
+    const uuid = this.userId(); if (!this.client || !uuid) return;
+    try {
+      await this.client.from('person').upsert(
+        { uuid, first_name: this.gFirst || (this.userName() ?? 'Me'), last_name: this.gLast, email: this.userEmail() },
+        { onConflict: 'uuid', ignoreDuplicates: true });
+      await this.load();
+    } catch { /* uuid column not migrated yet */ }
   }
 
   /** Editing requires a signed-in Supabase user - identical locally and in production. */
@@ -93,13 +109,11 @@ export class DataService {
   }
   private mutate(fn: (d: TreeData) => void): void { const d = structuredClone(this.data()); fn(d); this.data.set(d); }
   private nextMarriageId(): number { const ids = this.data().marriages.map(m => m.id); return (ids.length ? Math.max(...ids) : 0) + 1; }
-  /** Who-did-it audit, stored denormalized on the row: the editor's name from their Google session, plus timestamps. */
-  private audit(): Partial<Person> {
-    const name = this.userName(); const now = new Date().toISOString();
-    return { created_by_name: name, updated_by_name: name, created_at: now, updated_at: now };
+  /** Optimistic audit for instant display; the DB fills created_* via column defaults, the app sends updated_*. */
+  private stamp(p: Person): Person {
+    const by = this.userId(); const now = new Date().toISOString();
+    return { ...p, created_by: by, updated_by: by, created_at: now, updated_at: now };
   }
-  private touch(): Partial<Person> { return { updated_by_name: this.userName(), updated_at: new Date().toISOString() }; }
-  private stamp(p: Person): Person { return { ...p, ...this.audit() }; }
   private linkLocal(d: TreeData, relation: Relation, anchorId: number, id: number, coParentId: number | null = null): void {
     if (relation === 'spouse') d.marriages.push({ id: this.nextMarriageId(), partner1_id: anchorId, partner2_id: id });
     if (relation === 'child') {
@@ -111,7 +125,7 @@ export class DataService {
   /** Add a standalone person (the first person in an empty tree). Returns the new id, or -1 on failure. */
   /** Insert a person row and return its new id (throws on error). */
   private async insertPerson(first: string, last: string | null, gender: Gender): Promise<number> {
-    const ins = await this.client!.from('person').insert({ first_name: first, last_name: last, gender, ...this.audit() }).select('id').single();
+    const ins = await this.client!.from('person').insert({ first_name: first, last_name: last, gender }).select('id').single();
     if (ins.error) throw ins.error;
     return (ins.data as { id: number }).id;
   }
@@ -163,9 +177,9 @@ export class DataService {
 
   async rename(id: number, first: string, last: string | null, photo: string | null, gender: Gender): Promise<void> {
     if (!this.client) return;
-    const a = this.touch();
-    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.first_name = first; p.last_name = last; p.photo_url = photo; p.gender = gender; p.updated_by_name = a.updated_by_name; p.updated_at = a.updated_at; } });
-    const { error } = await this.client.from('person').update({ first_name: first, last_name: last, photo_url: photo, gender, ...a }).eq('id', id);
+    const by = this.userId(); const now = new Date().toISOString();
+    this.mutate(d => { const p = d.people.find(x => x.id === id); if (p) { p.first_name = first; p.last_name = last; p.photo_url = photo; p.gender = gender; p.updated_by = by; p.updated_at = now; } });
+    const { error } = await this.client.from('person').update({ first_name: first, last_name: last, photo_url: photo, gender, updated_by: by, updated_at: now }).eq('id', id);
     if (error) { this.fail(error); await this.load(); }
   }
   async deletePerson(id: number): Promise<void> {

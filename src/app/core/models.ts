@@ -1,16 +1,18 @@
 export interface Person {
   id: number;
+  uuid?: string | null;         // this person's auth UUID (set on sign-in); person doubles as the user directory
+  email?: string | null;
   first_name: string;
   last_name?: string | null;
   photo_url?: string | null;
   gender?: 'male' | 'female' | null;
-  created_by_name?: string | null;   // editor's display name, stamped from their Google session
-  updated_by_name?: string | null;   // who last edited this row
+  created_by?: string | null;   // editor's auth UUID -> person.uuid
+  updated_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
-export interface Marriage { id: number; partner1_id: number; partner2_id: number; }
-export interface ParentChild { parent_id: number; child_id: number; }
+export interface Marriage { id: number; partner1_id: number; partner2_id: number; created_by?: string | null; updated_by?: string | null; }
+export interface ParentChild { parent_id: number; child_id: number; created_by?: string | null; updated_by?: string | null; }
 export interface TreeData { people: Person[]; marriages: Marriage[]; parentChild: ParentChild[]; }
 export type Lang = 'en' | 'te';
 export type NodeClass = 'pov' | 'main' | 'ext';

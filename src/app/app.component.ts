@@ -261,6 +261,9 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   cropCancel(): void { this.cropSrc.set(null); }
   parentsOf(id: number) { return this.graph().parents(id); }
+  private editorMap = computed(() => { const m: Record<string, Person> = {}; this.svc.data().people.forEach(p => { if (p.uuid) m[p.uuid] = p; }); return m; });
+  /** Resolve an editor's auth UUID to their person row (the person table doubles as the editor directory). */
+  editorOf(uuid: string | null | undefined): Person | null { return uuid ? (this.editorMap()[uuid] ?? null) : null; }
   spousesOf(id: number) { return this.graph().spouses(id); }
   childrenOf(id: number) { return this.graph().children(id); }
   relWord(rel: Relation): string { return this.t(rel === 'spouse' ? 'spouseLabel' : 'childLabel'); }
