@@ -1,7 +1,5 @@
 import { Lang } from './models';
 
-// One entry per message with its languages colocated, so the language tables are not parallel
-// clones of each other (which read as duplicated blocks). Look up with tr(key, lang).
 const M: Record<string, Record<Lang, string>> = {
   appTitle: { en: 'Family Tree', te: 'కుటుంబ వృక్షం' },
   viewpoint: { en: 'Viewpoint', te: 'దృష్టికోణం' },

@@ -7,11 +7,6 @@ const elk = new ELK();
 const EMPTY: TreeView = { nodes: [], wires: [], box: null, width: 0, height: 0, pos: {} };
 const BOX = 130, COUPLE_W = 160 + BOX, L_OFF = BOX / 2, R_OFF = BOX / 2 + 160;
 
-/**
- * ELK ('layered') computes positions; finishView then draws the same connectors/box as the custom engine.
- * Each marriage is merged into a single ELK node so partners stay together and parents connect to the couple
- * (not to individual spouses) - that's what keeps a couple's two parent-lines from crossing.
- */
 export async function buildViewElk(graph: TreeGraph, pov: number, lang: Lang): Promise<TreeView> {
   const visible = graph.bloodAndSpouse(pov);
   const famSet = graph.immediateFamily(pov);
@@ -19,7 +14,6 @@ export async function buildViewElk(graph: TreeGraph, pov: number, lang: Lang): P
   const vpeople = graph.data.people.filter(p => inV(p.id));
   if (!vpeople.length) return { ...EMPTY };
 
-  // Greedily merge each marriage (whose partners aren't already taken) into one couple node.
   const nodeOf = new Map<number, string>();
   const coupleMembers = new Map<string, number[]>();
   let gid = 0;
@@ -69,7 +63,7 @@ export async function buildViewElk(graph: TreeGraph, pov: number, lang: Lang): P
     const members = coupleMembers.get(id), y = ny[id] + MARGIN;
     if (members) {
       const [a, b] = members;
-      const byGender = maleFirst(graph, a, b);   // male on the left, female on the right
+      const byGender = maleFirst(graph, a, b);
       const leftId = byGender ? byGender[0] : (parentAvgX(a) <= parentAvgX(b) ? a : b);
       const rightId = byGender ? byGender[1] : (leftId === a ? b : a);
       pos[leftId] = { x: nx[id] + L_OFF + MARGIN, y };

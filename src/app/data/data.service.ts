@@ -45,8 +45,6 @@ export class DataService {
     this.userPhoto.set((meta['avatar_url'] as string) ?? (meta['picture'] as string) ?? null);
     if (session?.user) this.ensureSelfPerson();
   }
-  /** On sign-in, ensure this user exists as a person keyed by their auth UUID: first time creates a new person row;
-   *  thereafter the UUID already matches one, so nothing is added. The person table doubles as the editor directory. */
   private async ensureSelfPerson(): Promise<void> {
     const uuid = this.userId(); if (!this.client || !uuid) return;
     try {
@@ -54,10 +52,9 @@ export class DataService {
         { uuid, first_name: this.gFirst || (this.userName() ?? 'Me'), last_name: this.gLast, email: this.userEmail() },
         { onConflict: 'uuid', ignoreDuplicates: true });
       await this.load();
-    } catch { /* uuid column not migrated yet */ }
+    } catch { }
   }
 
-  /** Editing requires a signed-in Supabase user - identical locally and in production. */
   canEdit(): boolean { return this.signedIn(); }
 
   async signInWithGoogle(): Promise<void> {
@@ -86,7 +83,7 @@ export class DataService {
       this.fail(e);
       this.data.set({ ...EMPTY });
     }
-    try {   // resilient: a missing settings table just means no default yet
+    try {
       const s = await this.client.from('app_settings').select('default_person_id').eq('id', 1).maybeSingle();
       this.defaultPovId.set(s.error ? null : ((s.data as { default_person_id: number | null } | null)?.default_person_id ?? null));
     } catch { this.defaultPovId.set(null); }
@@ -96,7 +93,7 @@ export class DataService {
   async setDefaultPov(personId: number): Promise<void> {
     if (!this.client) return;
     const prev = this.defaultPovId();
-    this.defaultPovId.set(personId);   // optimistic
+    this.defaultPovId.set(personId);
     const { error } = await this.client.from('app_settings').upsert({ id: 1, default_person_id: personId, updated_by_email: this.userEmail(), updated_at: new Date().toISOString() });
     if (error) { this.defaultPovId.set(prev); this.fail(error); }
   }
@@ -109,7 +106,6 @@ export class DataService {
   }
   private mutate(fn: (d: TreeData) => void): void { const d = structuredClone(this.data()); fn(d); this.data.set(d); }
   private nextMarriageId(): number { const ids = this.data().marriages.map(m => m.id); return (ids.length ? Math.max(...ids) : 0) + 1; }
-  /** Optimistic audit for instant display; the DB fills created_* via column defaults, the app sends updated_*. */
   private stamp(p: Person): Person {
     const by = this.userId(); const now = new Date().toISOString();
     return { ...p, created_by: by, updated_by: by, created_at: now, updated_at: now };
@@ -118,12 +114,10 @@ export class DataService {
     if (relation === 'spouse') d.marriages.push({ id: this.nextMarriageId(), partner1_id: anchorId, partner2_id: id });
     if (relation === 'child') {
       d.parentChild.push({ parent_id: anchorId, child_id: id });
-      if (coParentId != null) d.parentChild.push({ parent_id: coParentId, child_id: id });   // second parent only if the user picks one
+      if (coParentId != null) d.parentChild.push({ parent_id: coParentId, child_id: id });
     }
   }
 
-  /** Add a standalone person (the first person in an empty tree). Returns the new id, or -1 on failure. */
-  /** Insert a person row and return its new id (throws on error). */
   private async insertPerson(first: string, last: string | null, gender: Gender): Promise<number> {
     const ins = await this.client!.from('person').insert({ first_name: first, last_name: last, gender }).select('id').single();
     if (ins.error) throw ins.error;
@@ -155,7 +149,6 @@ export class DataService {
     } catch (e) { this.fail(e); await this.load(); }
   }
 
-  /** Link two people who already exist as spouses (loops are allowed - e.g. cousin/uncle marriages). */
   async linkSpouse(aId: number, bId: number): Promise<void> {
     if (!this.client || aId === bId) return;
     if (this.data().marriages.some(m => (m.partner1_id === aId && m.partner2_id === bId) || (m.partner1_id === bId && m.partner2_id === aId))) return;
@@ -163,7 +156,6 @@ export class DataService {
     const { error } = await this.client.from('marriage').insert({ partner1_id: aId, partner2_id: bId });
     if (error) { this.fail(error); await this.load(); }
   }
-  /** Link an existing person as a child of a parent. Caller must keep parent_child acyclic. */
   async linkChild(parentId: number, childId: number, coParentId: number | null = null): Promise<void> {
     if (!this.client || parentId === childId) return;
     const exists = (p: number) => this.data().parentChild.some(r => r.parent_id === p && r.child_id === childId);

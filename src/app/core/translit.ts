@@ -1,6 +1,5 @@
 import { Lang } from './models';
 
-/* romanized -> Telugu transliteration (approximate; auto-used for names) */
 const TE_V: Record<string, [string, string]> = {
   'au': ['ఔ', 'ౌ'], 'ai': ['ఐ', 'ై'], 'aa': ['ఆ', 'ా'], 'ee': ['ఈ', 'ీ'], 'ii': ['ఈ', 'ీ'],
   'oo': ['ఊ', 'ూ'], 'uu': ['ఊ', 'ూ'], 'a': ['అ', ''], 'i': ['ఇ', 'ి'], 'u': ['ఉ', 'ు'], 'e': ['ఏ', 'ే'], 'o': ['ఓ', 'ో'],

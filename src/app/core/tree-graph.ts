@@ -1,6 +1,5 @@
 import { Person, TreeData } from './models';
 
-/** Derives all higher relationships from the 3 base tables. */
 export class TreeGraph {
   private pById = new Map<number, Person>();
   constructor(public data: TreeData) { data.people.forEach(p => this.pById.set(p.id, p)); }
@@ -29,7 +28,6 @@ export class TreeGraph {
     }
     return out;
   }
-  /** All shortest relationship paths (lists of person ids) between two people over parent/child/spouse edges. */
   connectionPaths(aId: number, bId: number): number[][] {
     if (aId === bId) return [[aId]];
     const neighbors = (id: number): number[] => {
@@ -52,45 +50,39 @@ export class TreeGraph {
     if (!dist.has(bId)) return [];
     const paths: number[][] = [];
     const build = (node: number, acc: number[]) => {
-      if (paths.length >= 12) return;   // cap to avoid blow-up in densely-connected trees
+      if (paths.length >= 12) return;
       if (node === aId) { paths.push([aId, ...acc]); return; }
       (preds.get(node) ?? []).forEach(p => build(p, [node, ...acc]));
     };
     build(bId, []);
     return paths;
   }
-  /** All ancestors of a person (cycle-safe). Used to forbid a parent-child link that would loop. */
   ancestors(id: number): Set<number> {
     const out = new Set<number>();
     const up = (x: number) => this.parents(x).forEach(p => { if (!out.has(p.id)) { out.add(p.id); up(p.id); } });
     up(id);
     return out;
   }
-  /** All descendants of a person (cycle-safe). */
   descendants(id: number): Set<number> {
     const out = new Set<number>();
     const down = (x: number) => this.children(x).forEach(c => { if (!out.has(c.id)) { out.add(c.id); down(c.id); } });
     down(id);
     return out;
   }
-  /** Blood relatives up to great-grandparents + their descendants, every blood relative's spouse, and the POV's spouse's parents. */
   bloodAndSpouse(povId: number): Set<number> {
     const anc = new Set<number>([povId]);
     const up = (id: number, depth: number) => {
-      if (depth >= 4) return;   // cap the ancestor line at great-great-grandparents (4 levels up)
+      if (depth >= 4) return;
       this.parents(id).forEach(p => { if (!anc.has(p.id)) { anc.add(p.id); up(p.id, depth + 1); } });
     };
     up(povId, 0);
     const blood = new Set<number>();
     const down = (id: number) => { if (blood.has(id)) return; blood.add(id); this.children(id).forEach(c => down(c.id)); };
     anc.forEach(a => down(a));
-    // every blood relative's spouse joins as extended family (sibling-in-law, uncle's wife, child's spouse, POV's own spouse, ...)
     [...blood].forEach(id => this.spouses(id).forEach(s => blood.add(s.id)));
-    // plus the POV's spouse's parents (the in-laws)
     this.spouses(povId).forEach(s => this.parents(s.id).forEach(pp => blood.add(pp.id)));
     return blood;
   }
-  /** IMMEDIATE family: married -> spouse(s)+children; unmarried -> parents+siblings. POV included. */
   immediateFamily(id: number): Set<number> {
     const set = new Set<number>([id]);
     if (this.spouses(id).length) {

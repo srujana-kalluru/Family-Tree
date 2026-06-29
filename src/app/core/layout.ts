@@ -4,13 +4,10 @@ import { dispName, initialsOf } from './translit';
 
 export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 94, ROW = 220, MARGIN = 110, GUTTER = 26, BOX_PAD = 28;
 
-/** Fallback px width of a name capsule when no exact text measurer is supplied (node/tests).
- *  In the browser the component passes a canvas-based measurer so spacing matches the real rendered names. */
 function estimateNameWidth(label: string): number { return label.length * 8 + 26; }
 
 interface Anchor { cx: number; top: number; bottom: number; cy: number; left: number; right: number; }
 
-/** Order a married pair male-on-left, female-on-right. Returns null when gender doesn't decide it. */
 export function maleFirst(graph: TreeGraph, a: number, b: number): [number, number] | null {
   const ga = graph.byId(a)?.gender, gb = graph.byId(b)?.gender;
   if (ga === 'male' && gb === 'female') return [a, b];
@@ -18,12 +15,6 @@ export function maleFirst(graph: TreeGraph, a: number, b: number): [number, numb
   return null;
 }
 
-/**
- * Gender-pedigree order key in [0,1] for every visible person: each person's father-lineage is placed to the
- * LEFT and mother-lineage to the RIGHT, applied recursively from the POV couple (male partner on the left).
- * People who aren't blood ancestors (descendants, siblings, in-laws) settle to the mean of their relatives.
- * This only decides left-to-right ORDER; exact spacing still comes from the barycentre sweep.
- */
 function genderOrder(graph: TreeGraph, pov: number, inV: (id: number) => boolean): Record<number, number> {
   const ord: Record<number, number> = {};
   const fixed = new Set<number>();
@@ -34,24 +25,24 @@ function genderOrder(graph: TreeGraph, pov: number, inV: (id: number) => boolean
     const ps = parentsOf(id);
     let fa = ps.find(p => graph.byId(p.id)?.gender === 'male') ?? null;
     let mo = ps.find(p => graph.byId(p.id)?.gender === 'female') ?? null;
-    if (!fa && !mo) { fa = ps[0] ?? null; mo = ps[1] ?? null; }                  // genders unknown: deterministic by order
-    else if (fa && !mo) mo = ps.find(p => p.id !== fa!.id) ?? null;             // pair a known father with the other parent
+    if (!fa && !mo) { fa = ps[0] ?? null; mo = ps[1] ?? null; }
+    else if (fa && !mo) mo = ps.find(p => p.id !== fa!.id) ?? null;
     else if (mo && !fa) fa = ps.find(p => p.id !== mo!.id) ?? null;
     const m = (lo + hi) / 2;
-    if (fa && mo) { assignUp(fa.id, lo, m); assignUp(mo.id, m, hi); }           // father lineage left, mother lineage right
+    if (fa && mo) { assignUp(fa.id, lo, m); assignUp(mo.id, m, hi); }
     else if (fa) assignUp(fa.id, lo, hi);
     else if (mo) assignUp(mo.id, lo, hi);
   };
   const sps = graph.spouses(pov).filter(s => inV(s.id));
   if (sps.length === 1) {
-    const pair = maleFirst(graph, pov, sps[0].id) ?? [pov, sps[0].id];          // male partner takes the left half
+    const pair = maleFirst(graph, pov, sps[0].id) ?? [pov, sps[0].id];
     assignUp(pair[0], 0, 0.5); assignUp(pair[1], 0.5, 1);
   } else {
     assignUp(pov, 0, 1);
   }
   const others = graph.data.people.filter(p => inV(p.id) && !fixed.has(p.id)).map(p => p.id);
   others.forEach(id => { ord[id] = 0.5; });
-  for (let it = 0; it < 40; it++) {                                            // pull non-ancestors to the mean of their assigned relatives
+  for (let it = 0; it < 40; it++) {
     others.forEach(id => {
       const nb: number[] = [];
       graph.parents(id).forEach(p => { if (inV(p.id)) nb.push(ord[p.id]); });
@@ -63,29 +54,22 @@ function genderOrder(graph: TreeGraph, pov: number, inV: (id: number) => boolean
   return ord;
 }
 
-/** Pure layout: turns the graph + viewpoint into positioned nodes, connector wires and the immediate-family box. */
 export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (label: string) => number): TreeView {
   const people = graph.data.people;
   const visible = graph.bloodAndSpouse(pov);
   const famSet = graph.immediateFamily(pov);
   const inV = (id: number) => visible.has(id);
-  // Spacing is derived from what each node actually draws - its avatar size and its (measured) name-capsule width -
-  // so nothing is hardcoded: short names pack tight, long names get room, and it all recomputes whenever the tree changes.
   const nameW = measure ?? estimateNameWidth;
   const avSize = (id: number) => id === pov ? S_POV : (famSet.has(id) ? S_MAIN : S_EXT);
   const hwCache = new Map<number, number>();
   const halfW = (id: number) => { let v = hwCache.get(id); if (v == null) { v = Math.max(avSize(id) / 2, nameW(dispName(graph.byId(id)?.first_name ?? '', lang)) / 2); hwCache.set(id, v); } return v; };
-  const minGap = (a: number, b: number) => halfW(a) + halfW(b) + GUTTER + (famSet.has(a) !== famSet.has(b) ? BOX_PAD : 0);   // clears both nodes; +box padding only across the family-box edge
+  const minGap = (a: number, b: number) => halfW(a) + halfW(b) + GUTTER + (famSet.has(a) !== famSet.has(b) ? BOX_PAD : 0);
   const P = (id: number) => graph.parents(id).filter(p => inV(p.id));
   const C = (id: number) => graph.children(id).filter(c => inV(c.id));
   const S = (id: number) => graph.spouses(id).filter(s => inV(s.id));
   const vpeople = people.filter(p => inV(p.id));
-  const ord = genderOrder(graph, pov, inV);   // male lineages sort left, female lineages right (recursive)
+  const ord = genderOrder(graph, pov, inV);
 
-  // Generation = altitude. Level each family by parent-child ONLY (a parent is always exactly one row above each
-  // child), so every same-generation blood relative lands on the same row. Then align the separate families through
-  // marriages. A marriage WITHIN one family (a cousin/uncle consanguineous marriage) is skipped, so each partner
-  // keeps their own blood generation and the union is drawn as an elbow rather than dragging anyone off their row.
   const lvl: Record<number, number> = {}; const comp: Record<number, number> = {}; const members: number[][] = [];
   const seen = new Set<number>();
   const blood = (start: number, c: number) => {
@@ -116,7 +100,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (
   vpeople.forEach(p => { if (lvl[p.id] != null) rows[lvl[p.id]].push(p.id); });
 
   const x: Record<number, number> = {};
-  rows.forEach(row => { let cx = 0; row.forEach((id, i) => { if (i) cx += minGap(row[i - 1], id); x[id] = cx; }); });   // seed each row at minimum spacing
+  rows.forEach(row => { let cx = 0; row.forEach((id, i) => { if (i) cx += minGap(row[i - 1], id); x[id] = cx; }); });
 
   const placeRow = (ri: number) => {
     const row = rows[ri]; if (!row.length) return;
@@ -140,10 +124,10 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (
       else if (sps.length === 1) {
         const sp = sps[0].id; used.add(sp);
         const byGender = maleFirst(graph, id, sp);
-        if (byGender) m = byGender;   // male on the left, female on the right
+        if (byGender) m = byGender;
         else {
           const idFam = famSet.has(id), spFam = famSet.has(sp);
-          if (idFam !== spFam) {   // a nuclear child paired with their in-law: keep the child toward its parents, push the in-law to the outer edge
+          if (idFam !== spFam) {
             const kid = idFam ? id : sp, inlaw = idFam ? sp : id;
             const c = pax[kid] != null ? pax[kid]! : dx[kid];
             m = c >= (dx[id] + dx[sp]) / 2 ? [inlaw, kid] : [kid, inlaw];
@@ -156,19 +140,19 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (
         sps.forEach(s => used.add(s.id));
         const sorted = sps.map(s => s.id).sort((a, b) => dx[a] - dx[b]);
         const mid = Math.ceil(sorted.length / 2);
-        m = [...sorted.slice(0, mid), id, ...sorted.slice(mid)];   // hub centered among its spouses
+        m = [...sorted.slice(0, mid), id, ...sorted.slice(mid)];
       }
       const dv = m.map(x => dx[x]); const ov = m.map(id => ord[id] ?? 0.5);
       units.push({ m, d: dv.reduce((a, b) => a + b, 0) / dv.length, ord: ov.reduce((a, b) => a + b, 0) / ov.length });
     });
-    units.sort((a, b) => (a.ord - b.ord) || (a.d - b.d));   // each partner's family stays on their side: male lineages left, female right (recursive); barycentre only breaks ties
+    units.sort((a, b) => (a.ord - b.ord) || (a.d - b.d));
     let cursor = -Infinity; let prevLast: number | null = null; const placed: [number, number][] = [];
     units.forEach(u => {
       const off: number[] = [0];
-      for (let i = 1; i < u.m.length; i++) off.push(off[i - 1] + minGap(u.m[i - 1], u.m[i]));   // each member spaced by its own + neighbour's width
+      for (let i = 1; i < u.m.length; i++) off.push(off[i - 1] + minGap(u.m[i - 1], u.m[i]));
       const w = off[off.length - 1];
       let start = u.d - w / 2;
-      if (prevLast != null) start = Math.max(start, cursor + minGap(prevLast, u.m[0]));   // never overlap the previous unit
+      if (prevLast != null) start = Math.max(start, cursor + minGap(prevLast, u.m[0]));
       u.m.forEach((id, i) => placed.push([id, start + off[i]]));
       cursor = start + w; prevLast = u.m[u.m.length - 1];
     });
@@ -181,7 +165,7 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (
     const idxs = [...rows.keys()]; if (sweep % 2) idxs.reverse();
     for (const ri of idxs) placeRow(ri);
   }
-  for (let ri = 0; ri < rows.length; ri++) placeRow(ri);   // final top-down pass: children settle under their parents' midpoint (straight drops)
+  for (let ri = 0; ri < rows.length; ri++) placeRow(ri);
 
   let minX = Infinity;
   vpeople.forEach(p => { if (lvl[p.id] == null) return; minX = Math.min(minX, x[p.id] - halfW(p.id)); });
@@ -190,13 +174,10 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (
   const placedIds = vpeople.filter(p => lvl[p.id] != null);
   placedIds.forEach(p => { pos[p.id] = { x: x[p.id] - minX + MARGIN, y: lvl[p.id] * ROW + MARGIN }; });
 
-  // Collapse fully-empty vertical bands so loosely-joined branches don't leave huge voids. A band counts as empty
-  // only when NO node in ANY row occupies it; shifting everything to its right by the same amount keeps every drop
-  // vertical and every relative position intact - it just removes space that nothing needs.
   const spans = placedIds.map(p => [pos[p.id].x - halfW(p.id), pos[p.id].x + halfW(p.id)] as [number, number]).sort((a, b) => a[0] - b[0]);
   const merged: [number, number][] = [];
   spans.forEach(([l, r]) => { const last = merged[merged.length - 1]; if (last && l <= last[1] + 1) last[1] = Math.max(last[1], r); else merged.push([l, r]); });
-  const MAX_GAP = 72;   // most empty space we ever keep between two separate branches
+  const MAX_GAP = 72;
   const cuts: { at: number; by: number }[] = [];
   for (let i = 1; i < merged.length; i++) { const g = merged[i][0] - merged[i - 1][1]; if (g > MAX_GAP) cuts.push({ at: merged[i][0], by: g - MAX_GAP }); }
   if (cuts.length) placedIds.forEach(p => { const x0 = pos[p.id].x; let d = 0; for (const c of cuts) if (x0 >= c.at) d += c.by; pos[p.id].x = x0 - d; });
@@ -210,7 +191,6 @@ export function buildView(graph: TreeGraph, pov: number, lang: Lang, measure?: (
   return finishView(graph, pov, lang, pos, famSet, width, height);
 }
 
-/** Build nodes, connector wires and the immediate-family box from final positions. Shared by the custom and ELK layouts. */
 export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Record<number, { x: number; y: number }>, famSet: Set<number>, width: number, height: number): TreeView {
   const avSize = (id: number) => id === pov ? S_POV : (famSet.has(id) ? S_MAIN : S_EXT);
   const anchor = (id: number): Anchor | null => {
@@ -235,9 +215,9 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
     const main = (m.partner1_id === pov || m.partner2_id === pov);
     const mids = [m.partner1_id, m.partner2_id];
     if (Math.abs(L.cy - R.cy) < 1) {
-      wires.push({ x1: L.right, y1: L.cy, x2: R.left, y2: R.cy, main, kind: 'mar', ids: mids });   // same generation: straight horizontal
+      wires.push({ x1: L.right, y1: L.cy, x2: R.left, y2: R.cy, main, kind: 'mar', ids: mids });
     } else {
-      const midX = (L.right + R.left) / 2;                                 // partners on different generations: orthogonal elbow, never a diagonal
+      const midX = (L.right + R.left) / 2;
       wires.push({ x1: L.right, y1: L.cy, x2: midX, y2: L.cy, main, kind: 'mar', ids: mids });
       wires.push({ x1: midX, y1: L.cy, x2: midX, y2: R.cy, main, kind: 'mar', ids: mids });
       wires.push({ x1: midX, y1: R.cy, x2: R.left, y2: R.cy, main, kind: 'mar', ids: mids });
@@ -257,7 +237,7 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
     const px = pa.reduce((a, c) => a + c.cx, 0) / pa.length;
     const py = Math.max(...pa.map(c => c.bottom));
     const kidTop = Math.min(...ka.map(c => c.top));
-    const dropTop = pa.length >= 2 ? Math.min(...pa.map(c => c.cy)) : py;   // couples drop from the marriage line; a lone parent from its base
+    const dropTop = pa.length >= 2 ? Math.min(...pa.map(c => c.cy)) : py;
     famArr.push({ pars: f.pars, kids: f.kids, px, py, kidTop, busY: (py + kidTop) / 2, dropTop });
   });
   const bands: Record<string, Fam[]> = {};
@@ -272,19 +252,17 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
   });
   famArr.forEach(f => {
     const main = f.pars.includes(pov);
-    wires.push({ x1: f.px, y1: f.dropTop, x2: f.px, y2: f.busY, main, kind: 'drop', pars: f.pars, kids: f.kids });   // drop from the couple down to the bus
-    // Emit the horizontal bus as one stub per child (parents' centre -> child). The stubs overlap into the same bus
-    // visually, but tagging each with its parents+child lets the branch-highlight trace only the bloodline children.
+    wires.push({ x1: f.px, y1: f.dropTop, x2: f.px, y2: f.busY, main, kind: 'drop', pars: f.pars, kids: f.kids });
     f.kids.forEach(id => {
       const a = anchor(id)!;
       const cx = a.cx, r = Math.min(9, Math.abs(cx - f.px), Math.max(0, a.top - f.busY) / 2);
       if (Math.abs(cx - f.px) < 1 || r < 2) {
-        wires.push({ x1: f.px, y1: f.busY, x2: cx, y2: a.top, main, kind: 'kid', pars: f.pars, kid: id });   // straight drop to a child right below
+        wires.push({ x1: f.px, y1: f.busY, x2: cx, y2: a.top, main, kind: 'kid', pars: f.pars, kid: id });
       } else {
         const dir = cx > f.px ? 1 : -1;
-        wires.push({ x1: f.px, y1: f.busY, x2: cx - dir * r, y2: f.busY, main, kind: 'bus', pars: f.pars, kid: id });   // bus stub (stops short of the corner)
-        wires.push({ x1: cx - dir * r, y1: f.busY, x2: cx, y2: f.busY + r, main, kind: 'kid', pars: f.pars, kid: id, d: `M${cx - dir * r} ${f.busY}Q${cx} ${f.busY} ${cx} ${f.busY + r}` });   // rounded corner
-        wires.push({ x1: cx, y1: f.busY + r, x2: cx, y2: a.top, main, kind: 'kid', pars: f.pars, kid: id });   // child vertical (below the corner)
+        wires.push({ x1: f.px, y1: f.busY, x2: cx - dir * r, y2: f.busY, main, kind: 'bus', pars: f.pars, kid: id });
+        wires.push({ x1: cx - dir * r, y1: f.busY, x2: cx, y2: f.busY + r, main, kind: 'kid', pars: f.pars, kid: id, d: `M${cx - dir * r} ${f.busY}Q${cx} ${f.busY} ${cx} ${f.busY + r}` });
+        wires.push({ x1: cx, y1: f.busY + r, x2: cx, y2: a.top, main, kind: 'kid', pars: f.pars, kid: id });
       }
     });
   });
@@ -294,14 +272,10 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
   if (fids.length >= 2) {
     let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
     fids.forEach(id => { const a = anchor(id)!; x1 = Math.min(x1, a.left); x2 = Math.max(x2, a.right); y1 = Math.min(y1, a.top); y2 = Math.max(y2, a.bottom); });
-    // anchor() bounds the avatar only; each node renders its name in an 8px-gap band below it
-    // (up to two lines), so the bottom pad must clear that band - hence padBot >> padTop.
     const padX = 28, padTop = 22, padBot = 46;
     box = { x: x1 - padX, y: y1 - padTop, w: (x2 - x1) + padX * 2, h: (y2 - y1) + padTop + padBot };
   }
 
-  // Wire jumps: where a horizontal connector crosses a vertical one at an interior point (a true crossing, not a
-  // junction), tag the horizontal wire so it can be drawn hopping over the vertical with a small semicircle.
   const verts = wires.filter(w => Math.abs(w.x1 - w.x2) < 1);
   wires.filter(w => Math.abs(w.y1 - w.y2) < 1).forEach(h => {
     const y = h.y1, lo = Math.min(h.x1, h.x2), hi = Math.max(h.x1, h.x2);
@@ -318,11 +292,6 @@ export function finishView(graph: TreeGraph, pov: number, lang: Lang, pos: Recor
 
 export interface ConnSeg { nodes: { id: number; x: number; y: number }[]; wires: { x1: number; y1: number; x2: number; y2: number }[]; width: number; height: number; r: number; }
 
-/**
- * Lay out just the people on the connection path(s) as a small generational tree segment for the connection panel:
- * generation decides the row (parents above, children below, spouses level), a light barycentre sweep sets columns,
- * and consecutive path members are joined with the same orthogonal connectors the main tree uses.
- */
 export function connectionSegment(graph: TreeGraph, paths: number[][]): ConnSeg | null {
   const people = new Set<number>();
   paths.forEach(p => p.forEach(id => people.add(id)));
@@ -348,7 +317,7 @@ export function connectionSegment(graph: TreeGraph, paths: number[][]): ConnSeg 
 
   const x = new Map<number, number>();
   byLevel.forEach(arr => arr.forEach((id, i) => x.set(id, i)));
-  for (let pass = 0; pass < 8; pass++) {                                  // barycentre + repack, re-centred each pass so it doesn't drift
+  for (let pass = 0; pass < 8; pass++) {
     levels.forEach(l => {
       const arr = byLevel.get(l)!;
       const tgt = new Map<number, number>();
@@ -370,8 +339,8 @@ export function connectionSegment(graph: TreeGraph, paths: number[][]): ConnSeg 
   paths.forEach(p => { for (let i = 0; i < p.length - 1; i++) {
     const u = p[i], v = p[i + 1], k = u < v ? `${u}-${v}` : `${v}-${u}`; if (seen.has(k)) continue; seen.add(k);
     const ux = px(u), uy = py(u), vx = px(v), vy = py(v);
-    if (Math.abs(uy - vy) < 1) wires.push({ x1: ux, y1: uy, x2: vx, y2: vy });                                  // spouses: straight
-    else { const my = (uy + vy) / 2; wires.push({ x1: ux, y1: uy, x2: ux, y2: my }, { x1: ux, y1: my, x2: vx, y2: my }, { x1: vx, y1: my, x2: vx, y2: vy }); }   // parent-child: elbow
+    if (Math.abs(uy - vy) < 1) wires.push({ x1: ux, y1: uy, x2: vx, y2: vy });
+    else { const my = (uy + vy) / 2; wires.push({ x1: ux, y1: uy, x2: ux, y2: my }, { x1: ux, y1: my, x2: vx, y2: my }, { x1: vx, y1: my, x2: vx, y2: vy }); }
   }});
   const maxX = Math.max(...nodes.map(n => n.x)), maxY = Math.max(...nodes.map(n => n.y));
   return { nodes, wires, width: maxX + R + PADX, height: maxY + R + PADB, r: R };

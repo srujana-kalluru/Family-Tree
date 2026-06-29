@@ -1,12 +1,12 @@
 export interface Person {
   id: number;
-  uuid?: string | null;         // this person's auth UUID (set on sign-in); person doubles as the user directory
+  uuid?: string | null;
   email?: string | null;
   first_name: string;
   last_name?: string | null;
   photo_url?: string | null;
   gender?: 'male' | 'female' | null;
-  created_by?: string | null;   // editor's auth UUID -> person.uuid
+  created_by?: string | null;
   updated_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;

@@ -1,8 +1,4 @@
 databaseChangeLog:
-  # Single consolidated baseline (squash of the original 001-009 changesets).
-  # Idempotent: a fresh database builds the whole schema here; a database that already has
-  # these objects no-ops on what exists (and fills anything missing), so it is effectively
-  # "already applied". See changesets/001-baseline.sql for details.
   - changeSet:
       id: baseline
       author: family-tree

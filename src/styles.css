@@ -16,7 +16,6 @@ body{margin:0;font-family:var(--font);color:var(--text);background:var(--bg);ove
 body.te{font-family:"Noto Sans Telugu",var(--font)}
 button{font-family:inherit}
 
-/* Header */
 header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;gap:10px;height:56px;padding:0 18px;
   background:rgba(255,255,255,0.72);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);
   border-bottom:1px solid var(--line)}
@@ -41,7 +40,6 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .modeg{display:flex;margin:8px 0 2px}
 .modeg button{flex:1}
 
-/* Canvas */
 .stage{position:absolute;inset:0;top:56px;overflow:hidden;cursor:grab;touch-action:none;
   background:
     radial-gradient(circle at center, rgba(20,28,50,.07) 1.2px, transparent 1.3px) 0 0 / 26px 26px,
@@ -74,20 +72,17 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .node:hover .addh{opacity:1;transform:scale(1);pointer-events:auto}
 .addh:hover{background:var(--accent2)}
 
-/* Caption + legend */
 .caption{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:14px;
   background:rgba(255,255,255,.8);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);
   padding:8px 16px;border-radius:980px;font-size:12.5px;color:var(--text2);box-shadow:var(--shadow-sm)}
 .tag-offline{color:#bf7400;font-weight:600}
 
-/* Zoom */
 .zoombar{position:fixed;right:20px;bottom:20px;z-index:20;display:flex;gap:2px;background:rgba(255,255,255,.85);backdrop-filter:blur(18px);
   border:1px solid var(--line);border-radius:14px;padding:4px;box-shadow:var(--shadow-sm)}
 .zoombar button{border:none;background:transparent;min-width:32px;height:32px;border-radius:10px;font-size:17px;font-weight:500;color:var(--text);cursor:pointer;display:grid;place-items:center;transition:.15s}
 .zoombar button:hover{background:var(--hover)}
 .zoombar .fit{padding:0 12px;font-size:12.5px;font-weight:500}
 
-/* Welcome / empty */
 .welcome{position:absolute;inset:0;top:56px;display:grid;place-items:center;padding:24px}
 .welcome-card{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;max-width:360px}
 .welcome-icon{width:72px;height:72px;border-radius:20px;background:linear-gradient(160deg,#1f9dff,#0060df);display:grid;place-items:center;
@@ -95,7 +90,6 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .welcome-card h1{margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em}
 .welcome-card p{margin:0 0 16px;color:var(--text2);font-size:15px;line-height:1.4}
 
-/* Google + primary buttons */
 .gbtn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:44px;padding:0 22px;border-radius:980px;
   font-size:15px;font-weight:500;cursor:pointer;border:1px solid var(--line2);background:#fff;color:var(--text);
   box-shadow:0 1px 2px rgba(0,0,0,.04);transition:background .18s,transform .12s}
@@ -104,7 +98,6 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .gbtn.cta{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 4px 14px rgba(0,113,227,.32)}
 .gbtn.cta:hover{background:var(--accent2)}
 
-/* Modal */
 .scrim{position:fixed;inset:0;z-index:50;background:rgba(20,24,40,.32);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fade .18s ease}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .modal{width:min(420px,94vw);max-height:88vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(20,28,50,.34);padding:24px;animation:pop .26s cubic-bezier(.2,.8,.3,1)}
@@ -185,7 +178,6 @@ input[type=text]:focus,input[type=password]:focus{outline:none;border-color:var(
 .starbtn.on{color:#f5a623}
 .pmeta .cur{font-size:10px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.4px}
 
-/* Toast */
 .toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;background:#1d1d1f;color:#fff;padding:11px 16px;border-radius:14px;font-size:13.5px;font-weight:500;box-shadow:0 12px 34px rgba(0,0,0,.3);max-width:90vw}
 .toast button{border:none;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;opacity:.7}
 .toast button:hover{opacity:1}

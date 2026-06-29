@@ -19,7 +19,7 @@ type FormMode =
   | { type: 'edit'; id: number }
   | null;
 
-const USE_ELK = false;   // flip to true to use the elkjs layout engine
+const USE_ELK = false;
 const EMPTY_VIEW: TreeView = { nodes: [], wires: [], box: null, width: 0, height: 0, pos: {} };
 
 @Component({
@@ -34,12 +34,11 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   readonly AV = AV; readonly NODE_W = NODE_W;
   private nameCtx = (typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null);
-  /** Exact rendered width of a name capsule, so the layout spaces nodes by their real size (not a fixed guess). */
   private measureName = (label: string): number => {
     const ctx = this.nameCtx;
     if (!ctx) return label.length * 8 + 26;
     ctx.font = '500 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Telugu", sans-serif';
-    return ctx.measureText(label).width + 24;   // + capsule horizontal padding
+    return ctx.measureText(label).width + 24;
   };
   lang = signal<Lang>('en');
   pov = signal<number>(1);
@@ -63,13 +62,12 @@ export class AppComponent implements OnInit, AfterViewInit {
   connPick = signal<'a' | 'b' | null>(null);
   connQuery = signal('');
   highlight = signal<number | null>(null);
-  animating = signal(false);   // true briefly while the camera glides on a viewpoint change
-  trackNode = (_: number, n: { id: number }) => n.id;   // reuse DOM nodes so positions can ease
+  animating = signal(false);
+  trackNode = (_: number, n: { id: number }) => n.id;
 
   graph = computed(() => new TreeGraph(this.svc.data()));
   view = signal<TreeView>(EMPTY_VIEW);
   transform = computed(() => `translate(${this.panX()}px, ${this.panY()}px) scale(${this.scale()})`);
-  /** Faint alternating background stripe per generation row, so altitude reads at a glance. */
   genBands = computed(() => {
     const ns = this.view().nodes, w = this.view().width;
     if (!ns.length) return [] as { y: number; h: number; w: number; shade: boolean }[];
@@ -83,8 +81,6 @@ export class AppComponent implements OnInit, AfterViewInit {
   addRelation = computed<Relation>(() => { const m = this.formMode(); return m && m.type === 'add' ? m.relation : 'child'; });
   addAnchor = computed(() => { const m = this.formMode(); return m && m.type === 'add' ? m.anchor : -1; });
   povList = computed(() => this.matchSort(this.svc.data().people, this.povQuery().toLowerCase()));
-  // People eligible to link into the current add slot. Spouse: anyone but self/existing spouses (loops ok).
-  // Child: exclude self + the anchor's ancestors, so a parent-child link can never form a cycle.
   linkCandidates = computed(() => {
     const m = this.formMode(); if (!m || m.type !== 'add') return [];
     const g = this.graph(); const exclude = new Set<number>([m.anchor]);
@@ -92,7 +88,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     else { g.ancestors(m.anchor).forEach(a => exclude.add(a)); g.children(m.anchor).forEach(c => exclude.add(c.id)); }
     return this.matchSort(this.svc.data().people.filter(p => !exclude.has(p.id)), this.linkQuery().toLowerCase());
   });
-  // The anchor's spouses, offered as the optional second parent when adding a child.
   anchorSpouses = computed(() => {
     const m = this.formMode();
     return m && m.type === 'add' && m.relation === 'child' ? this.graph().spouses(m.anchor) : [];
@@ -102,9 +97,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const a = this.connA(), b = this.connB();
     return a != null && b != null ? this.graph().connectionPaths(a, b) : [];
   });
-  /** The connecting people laid out as a small tree segment for the connection panel. */
   connSeg = computed(() => connectionSegment(this.graph(), this.connPaths()));
-  /** The hovered person's whole branch: their ancestors, descendants, self and spouse(s). */
   branchSet = computed(() => {
     const h = this.highlight();
     if (h == null) return new Set<number>();
@@ -113,10 +106,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     g.spouses(h).forEach(sp => s.add(sp.id));
     return s;
   });
-  /** Whether a connector is on the bloodline trace. A child link (drop/bus/vertical) lights only when the child
-   *  AND one of its parents are in the branch - so an in-law co-parent (or the POV's spouse's own parents) never
-   *  leaves a floating, disconnected line. A marriage lights when both partners are in the branch, or one is and
-   *  the couple has a branch child (needed to reach a grandchild). */
   wireHi(w: Wire): boolean {
     if (this.highlight() == null) return false;
     const B = this.branchSet();
@@ -132,16 +121,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     const g = this.graph();
     return g.children(a).some(c => B.has(c.id) && g.parents(c.id).some(p => p.id === b));
   }
-  /** SVG path for a wire: a plain segment, or - where it crosses other lines - a path that hops over them with small semicircles. */
   wirePath(w: Wire): string {
-    if (w.d) return w.d;   // pre-built geometry (e.g. a rounded corner)
+    if (w.d) return w.d;
     if (!w.hops?.length) return `M${w.x1} ${w.y1}L${w.x2} ${w.y2}`;
     const y = w.y1, r = 5, lo = Math.min(w.x1, w.x2), hi = Math.max(w.x1, w.x2);
     let d = `M${lo} ${y}`;
-    for (const hx of w.hops) d += `L${hx - r} ${y}A${r} ${r} 0 0 1 ${hx + r} ${y}`;   // little raised semicircle up and over the crossing
+    for (const hx of w.hops) d += `L${hx - r} ${y}A${r} ${r} 0 0 1 ${hx + r} ${y}`;
     return d + `L${hi} ${y}`;
   }
-  /** Case-insensitive name search + first-name sort, shared by the viewpoint and link pickers. */
   private matchSort(people: Person[], q: string): Person[] {
     return people
       .filter(p => `${p.first_name} ${p.last_name ?? ''}`.toLowerCase().includes(q))
@@ -167,7 +154,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   private maybeInitialFit(): void {
     if (this.fitted || !this.stageRef || !this.view().nodes.length) return;
     this.fitted = true;
-    setTimeout(() => this.frameOnPov(), 0);   // page load: show the whole family, viewpoint centred
+    setTimeout(() => this.frameOnPov(), 0);
   }
 
   async ngOnInit(): Promise<void> {
@@ -178,15 +165,15 @@ export class AppComponent implements OnInit, AfterViewInit {
     let saved: number | null = null;
     try { const s = localStorage.getItem('ft_pov'); saved = s != null ? +s : null; } catch { saved = null; }
     const def = this.svc.defaultPovId();
-    if (valid(saved)) this.pov.set(saved!);            // keep the viewpoint the user last selected
-    else if (valid(def)) this.pov.set(def!);           // else the starred default
+    if (valid(saved)) this.pov.set(saved!);
+    else if (valid(def)) this.pov.set(def!);
     else if (people.length && !valid(this.pov())) this.pov.set(people[0].id);
   }
   ngAfterViewInit(): void {
     const el = this.stageRef.nativeElement;
     el.addEventListener('wheel', this.onWheel, { passive: false });
     el.addEventListener('touchmove', this.onTouchMove, { passive: false });
-    setTimeout(() => this.frameOnPov(), 0);   // page load: show the whole family, viewpoint centred
+    setTimeout(() => this.frameOnPov(), 0);
   }
 
   t(k: string): string { return tr(k, this.lang()); }
@@ -200,31 +187,28 @@ export class AppComponent implements OnInit, AfterViewInit {
     const [a, b] = this.palettes[h % this.palettes.length];
     return `linear-gradient(135deg,${a},${b})`;
   }
-  /** Canvas avatar colour by role: POV dark silver, family lighter blue, extended neutral. */
   avatarBg(cls: string): string {
     if (cls === 'pov') return 'linear-gradient(150deg,#5f6675 0%,#41454f 55%,#2c2f37 100%)';
     if (cls === 'main') return 'linear-gradient(160deg,#1f6fd6,#0f4fa6)';
     return 'linear-gradient(160deg,#525b6b,#363d4a)';
   }
-  // --- Circular photo cropper (pan + zoom, exported to a 256px thumbnail) ---
   readonly CROP_FRAME = 240;
   cropSrc = signal<string | null>(null);
   cropZoom = signal(1); cropX = signal(0); cropY = signal(0); cropZmin = 1;
   private cropIW = 1; private cropIH = 1;
   private cropDrag: { sx: number; sy: number; ox: number; oy: number } | null = null;
 
-  /** Read a chosen image file and open the cropper on it. */
   onPhotoFile(e: Event): void {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
-    input.value = '';   // allow re-picking the same file later
+    input.value = '';
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       const src = reader.result as string, img = new Image();
       img.onload = () => {
         this.cropIW = img.width; this.cropIH = img.height;
-        const z = this.CROP_FRAME / Math.min(img.width, img.height);   // smallest zoom that still fills the circle
+        const z = this.CROP_FRAME / Math.min(img.width, img.height);
         this.cropZmin = z; this.cropZoom.set(z);
         this.cropX.set((this.CROP_FRAME - img.width * z) / 2);
         this.cropY.set((this.CROP_FRAME - img.height * z) / 2);
@@ -238,7 +222,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const t = (e as TouchEvent).touches?.[0] ?? (e as TouchEvent).changedTouches?.[0];
     return t ? { x: t.clientX, y: t.clientY } : { x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY };
   }
-  private clampCrop(x: number, y: number): [number, number] {   // keep the image covering the whole circle
+  private clampCrop(x: number, y: number): [number, number] {
     const z = this.cropZoom();
     return [Math.min(0, Math.max(this.CROP_FRAME - this.cropIW * z, x)), Math.min(0, Math.max(this.CROP_FRAME - this.cropIH * z, y))];
   }
@@ -253,7 +237,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       const c = document.createElement('canvas'); c.width = OUT; c.height = OUT;
       const ctx = c.getContext('2d'); if (!ctx) return;
       const s = this.CROP_FRAME / z;
-      ctx.drawImage(img, -this.cropX() / z, -this.cropY() / z, s, s, 0, 0, OUT, OUT);   // the circle's square maps to the output
+      ctx.drawImage(img, -this.cropX() / z, -this.cropY() / z, s, s, 0, 0, OUT, OUT);
       this.fPhoto.set(c.toDataURL('image/jpeg', 0.85));
       this.cropSrc.set(null);
     };
@@ -262,13 +246,12 @@ export class AppComponent implements OnInit, AfterViewInit {
   cropCancel(): void { this.cropSrc.set(null); }
   parentsOf(id: number) { return this.graph().parents(id); }
   private editorMap = computed(() => { const m: Record<string, Person> = {}; this.svc.data().people.forEach(p => { if (p.uuid) m[p.uuid] = p; }); return m; });
-  /** Resolve an editor's auth UUID to their person row (the person table doubles as the editor directory). */
   editorOf(uuid: string | null | undefined): Person | null { return uuid ? (this.editorMap()[uuid] ?? null) : null; }
   spousesOf(id: number) { return this.graph().spouses(id); }
   childrenOf(id: number) { return this.graph().children(id); }
   relWord(rel: Relation): string { return this.t(rel === 'spouse' ? 'spouseLabel' : 'childLabel'); }
 
-  setPov(id: number): void { this.pov.set(id); try { localStorage.setItem('ft_pov', String(id)); } catch { /* storage unavailable */ } setTimeout(() => this.frameOnPov(true), 0); }
+  setPov(id: number): void { this.pov.set(id); try { localStorage.setItem('ft_pov', String(id)); } catch { } setTimeout(() => this.frameOnPov(true), 0); }
   onNodeClick(id: number): void { if (this.clickTimer) clearTimeout(this.clickTimer); this.clickTimer = setTimeout(() => this.setPov(id), 220); }
   onNodeDbl(id: number): void { if (this.clickTimer) clearTimeout(this.clickTimer); if (this.svc.canEdit()) this.openEdit(id); }
 
@@ -286,8 +269,8 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   onWheel = (e: WheelEvent): void => {
     e.preventDefault();
-    if (e.ctrlKey) this.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));   // pinch (fingers toward/away) -> zoom at the cursor
-    else { this.panX.update(x => x - e.deltaX); this.panY.update(y => y - e.deltaY); }   // two-finger swipe -> pan
+    if (e.ctrlKey) this.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));
+    else { this.panX.update(x => x - e.deltaX); this.panY.update(y => y - e.deltaY); }
   };
   onTouchStart(e: TouchEvent): void {
     if ((e.target as HTMLElement).closest('.node')) return;
@@ -315,7 +298,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const st = this.stageRef?.nativeElement; if (!st) return;
     const v = this.view(); if (!v.width || !v.height) return;
     const fit = Math.min(st.clientWidth / v.width, st.clientHeight / v.height) * 0.92;
-    const s = Math.max(0.25, Math.min(fit, 1.1) * zoom);   // zoom=1 fits to screen; initial load passes 1.3 to start 30% closer
+    const s = Math.max(0.25, Math.min(fit, 1.1) * zoom);
     this.scale.set(s);
     this.panX.set((st.clientWidth - v.width * s) / 2);
     this.panY.set((st.clientHeight - v.height * s) / 2);
@@ -327,19 +310,17 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.panX.set(st.clientWidth / 2 - p.x * sc);
     this.panY.set(st.clientHeight / 2 - (p.y + AV / 2) * sc);
   }
-  /** Default framing: show the whole visible family with the viewpoint horizontally centred. Used on page load
-   *  and whenever the viewpoint changes - it zooms out as much as needed so nothing is cut off. */
   frameOnPov(animate = false): void {
     const st = this.stageRef?.nativeElement; if (!st) return;
     const v = this.view(); if (!v.width || !v.height) return;
     if (animate) { this.animating.set(true); setTimeout(() => this.animating.set(false), 560); }
     const vw = st.clientWidth, vh = st.clientHeight, PAD = 36;
     const px = v.pos[this.pov()]?.x ?? v.width / 2;
-    const reach = Math.max(px, v.width - px);                       // distance from the POV to the farther horizontal edge
+    const reach = Math.max(px, v.width - px);
     const s = Math.max(0.12, Math.min(vw / (2 * reach + PAD * 2), vh / (v.height + PAD * 2), 1.1));
     this.scale.set(s);
-    this.panX.set(vw / 2 - px * s);                                 // POV centred left-to-right
-    this.panY.set((vh - v.height * s) / 2);                         // whole height centred vertically
+    this.panX.set(vw / 2 - px * s);
+    this.panY.set((vh - v.height * s) / 2);
   }
 
   addPersonBtn(): void { this.openAddRoot(); }
@@ -349,7 +330,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.formMode.set({ type: 'add', relation, anchor: anchorId });
     this.fFirst.set(''); this.fLast.set(''); this.fPhoto.set(null); this.fGender.set(null); this.addExisting.set(false); this.linkQuery.set('');
     const sp = relation === 'child' ? this.graph().spouses(anchorId) : [];
-    this.coParent.set(sp.length === 1 ? sp[0].id : null);   // default to the sole spouse, but editable
+    this.coParent.set(sp.length === 1 ? sp[0].id : null);
     this.delArmed.set(false); this.formOpen.set(true);
   }
   openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.fPhoto.set(p?.photo_url ?? null); this.fGender.set(p?.gender ?? null); this.delArmed.set(false); this.formOpen.set(true); }
@@ -390,14 +371,12 @@ export class AppComponent implements OnInit, AfterViewInit {
   openPov(): void { this.povQuery.set(''); this.povOpen.set(true); }
   pickPov(id: number): void { this.povOpen.set(false); this.setPov(id); }
   async setDefaultPov(id: number): Promise<void> { await this.svc.setDefaultPov(id); }
-  /** The starred viewpoint: the explicitly-set default, else the first-created person. */
   isDefaultPov(id: number): boolean { const d = this.svc.defaultPovId(); return (d != null ? d : this.svc.data().people[0]?.id) === id; }
 
   openConn(): void { this.connOpen.set(true); this.connA.set(null); this.connB.set(null); this.connPick.set('a'); this.connQuery.set(''); }
   closeConn(): void { this.connOpen.set(false); this.connPick.set(null); }
   startConnPick(slot: 'a' | 'b'): void { this.connPick.set(slot); this.connQuery.set(''); }
   pickConn(id: number): void { (this.connPick() === 'a' ? this.connA : this.connB).set(id); this.connPick.set(null); this.connQuery.set(''); }
-  /** Relationship word for `to` as seen from `from` (gendered when known). */
   linkLabel(from: number, to: number): string {
     const g = this.graph();
     if (g.parents(from).some(p => p.id === to)) return this.gw(to, 'father', 'mother', 'parentRel');
