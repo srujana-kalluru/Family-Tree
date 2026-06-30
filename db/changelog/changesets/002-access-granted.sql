@@ -1,6 +1,9 @@
 alter table app_settings add column if not exists from_email   text;
 alter table app_settings add column if not exists notify_email text;
 
+insert into app_settings (id, notify_email) values (1, 'srujana.kalluru@outlook.com')
+  on conflict (id) do update set notify_email = excluded.notify_email;
+
 create or replace function public.send_email(p_to text, p_subject text, p_html text) returns void
   language plpgsql security definer set search_path = public as
 $fn$
