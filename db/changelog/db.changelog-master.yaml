@@ -22,3 +22,11 @@ databaseChangeLog:
         - sql: 'drop table if exists parent_child cascade'
         - sql: 'drop table if exists marriage cascade'
         - sql: 'drop table if exists person cascade'
+  - changeSet:
+      id: access-config
+      author: family-tree
+      runOnChange: true
+      changes:
+        - sqlFile:
+            path: changesets/002-config.sql
+            relativeToChangelogFile: true
