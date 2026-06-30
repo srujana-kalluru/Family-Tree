@@ -1,6 +1,6 @@
 databaseChangeLog:
   - changeSet:
-      id: schema
+      id: schema2
       author: family-tree
       changes:
         - sqlFile:
@@ -8,9 +8,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
       rollback:
+        - sql: 'drop trigger if exists notify_access_granted_trg on person'
         - sql: 'drop function if exists public.request_access cascade'
-        - sql: 'drop function if exists public.send_access_email cascade'
+        - sql: 'drop function if exists public.notify_access_granted cascade'
         - sql: 'drop function if exists public.notify_access_request cascade'
+        - sql: 'drop function if exists public.send_access_email cascade'
+        - sql: 'drop function if exists public.send_email cascade'
         - sql: 'drop function if exists public.guard_person_flags cascade'
         - sql: 'drop function if exists public.bootstrap_owner cascade'
         - sql: 'drop function if exists public.is_admin cascade'
@@ -19,15 +22,3 @@ databaseChangeLog:
         - sql: 'drop table if exists parent_child cascade'
         - sql: 'drop table if exists marriage cascade'
         - sql: 'drop table if exists person cascade'
-  - changeSet:
-      id: access-granted
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/002-access-granted.sql
-            relativeToChangelogFile: true
-            splitStatements: false
-      rollback:
-        - sql: 'drop trigger if exists notify_access_granted_trg on person'
-        - sql: 'drop function if exists public.notify_access_granted cascade'
-        - sql: 'alter table app_settings drop column if exists from_email, drop column if exists notify_email'
