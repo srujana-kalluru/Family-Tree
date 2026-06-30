@@ -103,15 +103,14 @@ export class AppComponent implements OnInit, AfterViewInit {
   });
   connSeg = computed(() => connectionSegment(this.graph(), this.connPaths()));
   branchSet = computed(() => {
-    const h = this.highlight();
-    if (h == null) return new Set<number>();
     const g = this.graph();
+    const h = this.highlight();
+    if (h == null) return g.immediateFamily(this.pov());
     const s = new Set<number>([h, ...g.ancestors(h), ...g.descendants(h)]);
     g.spouses(h).forEach(sp => s.add(sp.id));
     return s;
   });
   wireHi(w: Wire): boolean {
-    if (this.highlight() == null) return false;
     const B = this.branchSet();
     if (w.kind === 'mar') {
       const a = w.ids![0], b = w.ids![1];
