@@ -147,12 +147,14 @@ export class AppComponent implements OnInit, AfterViewInit {
   constructor(public svc: DataService) {
     effect(() => {
       const people = this.svc.data().people;
-      if (!people.length || people.some(p => p.id === this.pov())) return;
+      const def = this.svc.defaultPovId();
+      if (!people.length) return;
       const ok = (id: number | null) => id != null && people.some(p => p.id === id);
+      if (this.povReady) { if (!ok(this.pov())) this.pov.set(ok(def) ? def! : people[0].id); return; }
+      this.povReady = true;
       let saved: number | null = null;
       try { const s = localStorage.getItem('ft_pov'); saved = s != null ? +s : null; } catch { saved = null; }
-      const def = this.svc.defaultPovId();
-      this.pov.set(ok(saved) ? saved! : ok(def) ? def! : people[0].id);
+      this.pov.set(ok(def) ? def! : ok(saved) ? saved! : people[0].id);
     });
     effect(() => {
       const g = this.graph(), p = this.pov(), l = this.lang();
@@ -162,6 +164,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
   }
   private fitted = false;
+  private povReady = false;
   private maybeInitialFit(): void {
     if (this.fitted || !this.stageRef || !this.view().nodes.length) return;
     this.fitted = true;
@@ -320,7 +323,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const vw = st.clientWidth, vh = st.clientHeight, PAD = 36;
     const px = v.pos[this.pov()]?.x ?? v.width / 2;
     const reach = Math.max(px, v.width - px);
-    const s = Math.max(0.12, Math.min(vw / (2 * reach + PAD * 2), vh / (v.height + PAD * 2), 1.1));
+    const s = Math.max(0.12, Math.min(vw / (2 * reach + PAD * 2), vh / (v.height + PAD * 2), 1.1) * 1.2);
     this.scale.set(s);
     this.panX.set(vw / 2 - px * s);
     this.panY.set((vh - v.height * s) / 2);

@@ -72,11 +72,13 @@ export class DataService {
   async load(): Promise<void> {
     if (!this.client) { this.data.set({ ...EMPTY }); this.ready.set(true); return; }
     try {
-      const [pp, mm, pc] = await Promise.all([
+      const [pp, mm, pc, s] = await Promise.all([
         this.client.from('person').select(SELECT).order('id'),
         this.client.from('marriage').select('id,partner1_id,partner2_id').order('id'),
         this.client.from('parent_child').select('parent_id,child_id'),
+        this.client.from('app_settings').select('default_person_id').eq('id', 1).maybeSingle(),
       ]);
+      this.defaultPovId.set(s.error ? null : ((s.data as { default_person_id: number | null } | null)?.default_person_id ?? null));
       if (pp.error || mm.error || pc.error) throw (pp.error || mm.error || pc.error);
       this.data.set({
         people: (pp.data as Person[]) ?? [],
@@ -87,10 +89,6 @@ export class DataService {
       this.fail(e);
       this.data.set({ ...EMPTY });
     }
-    try {
-      const s = await this.client.from('app_settings').select('default_person_id').eq('id', 1).maybeSingle();
-      this.defaultPovId.set(s.error ? null : ((s.data as { default_person_id: number | null } | null)?.default_person_id ?? null));
-    } catch { this.defaultPovId.set(null); }
     this.ready.set(true);
   }
 
