@@ -71,11 +71,10 @@ export class TreeGraph {
   }
   bloodAndSpouse(povId: number): Set<number> {
     const anc = new Set<number>([povId]);
-    const up = (id: number, depth: number) => {
-      if (depth >= 4) return;
-      this.parents(id).forEach(p => { if (!anc.has(p.id)) { anc.add(p.id); up(p.id, depth + 1); } });
+    const up = (id: number) => {
+      this.parents(id).forEach(p => { if (!anc.has(p.id)) { anc.add(p.id); up(p.id); } });
     };
-    up(povId, 0);
+    up(povId);
     const blood = new Set<number>();
     const down = (id: number) => { if (blood.has(id)) return; blood.add(id); this.children(id).forEach(c => down(c.id)); };
     anc.forEach(a => down(a));

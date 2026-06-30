@@ -75,7 +75,7 @@ export class DataService {
     if (!this.client) { this.data.set({ ...EMPTY }); this.ready.set(true); return; }
     try {
       const [pp, mm, pc, s, uu] = await Promise.all([
-        this.client.from('person').select(SELECT).order('id'),
+        this.client.from('person').select(SELECT).is('uuid', null).order('id'),
         this.client.from('marriage').select('id,partner1_id,partner2_id').order('id'),
         this.client.from('parent_child').select('parent_id,child_id'),
         this.client.from('app_settings').select('default_person_id').eq('id', 1).maybeSingle(),
