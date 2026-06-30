@@ -37,11 +37,4 @@ databaseChangeLog:
         - sqlFile:
             path: changesets/002-config.sql
             relativeToChangelogFile: true
-  - changeSet:
-      id: email-to-owner
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/008-merge-email.sql
-            relativeToChangelogFile: true
             splitStatements: false
