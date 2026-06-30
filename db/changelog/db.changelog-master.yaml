@@ -30,4 +30,4 @@ databaseChangeLog:
       rollback:
         - sql: 'drop trigger if exists notify_access_granted_trg on person'
         - sql: 'drop function if exists public.notify_access_granted cascade'
-        - sql: 'alter table app_settings drop column if exists from_email'
+        - sql: 'alter table app_settings drop column if exists from_email, drop column if exists notify_email'

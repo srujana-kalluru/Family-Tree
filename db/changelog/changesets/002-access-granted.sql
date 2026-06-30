@@ -1,4 +1,5 @@
-alter table app_settings add column if not exists from_email text;
+alter table app_settings add column if not exists from_email   text;
+alter table app_settings add column if not exists notify_email text;
 
 create or replace function public.send_email(p_to text, p_subject text, p_html text) returns void
   language plpgsql security definer set search_path = public as
@@ -32,7 +33,7 @@ declare
   v_app text;
   v_name text;
 begin
-  select owner_email, app_url into v_owner, v_app from app_settings where id = 1;
+  select coalesce(notify_email, owner_email), app_url into v_owner, v_app from app_settings where id = 1;
   if v_owner is null then
     return;
   end if;
