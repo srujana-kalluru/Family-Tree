@@ -1,27 +1,34 @@
 databaseChangeLog:
   - changeSet:
-      id: schema2
+      id: schema3
       author: family-tree
+      preConditions:
+        - onFail: MARK_RAN
+          onError: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: person
       changes:
         - sqlFile:
             path: changesets/001-baseline.sql
             relativeToChangelogFile: true
             splitStatements: false
       rollback:
-        - sql: 'drop trigger if exists notify_access_granted_trg on person'
+        - sql: 'drop table if exists user_person cascade'
+        - sql: 'drop table if exists app_user cascade'
+        - sql: 'drop table if exists app_settings cascade'
+        - sql: 'drop table if exists parent_child cascade'
+        - sql: 'drop table if exists marriage cascade'
+        - sql: 'drop table if exists person cascade'
         - sql: 'drop function if exists public.request_access cascade'
         - sql: 'drop function if exists public.notify_access_granted cascade'
         - sql: 'drop function if exists public.notify_access_request cascade'
         - sql: 'drop function if exists public.send_access_email cascade'
         - sql: 'drop function if exists public.send_email cascade'
-        - sql: 'drop function if exists public.guard_person_flags cascade'
+        - sql: 'drop function if exists public.guard_user_flags cascade'
         - sql: 'drop function if exists public.bootstrap_owner cascade'
         - sql: 'drop function if exists public.is_admin cascade'
         - sql: 'drop function if exists public.is_approved cascade'
-        - sql: 'drop table if exists app_settings cascade'
-        - sql: 'drop table if exists parent_child cascade'
-        - sql: 'drop table if exists marriage cascade'
-        - sql: 'drop table if exists person cascade'
   - changeSet:
       id: access-config
       author: family-tree
@@ -31,30 +38,10 @@ databaseChangeLog:
             path: changesets/002-config.sql
             relativeToChangelogFile: true
   - changeSet:
-      id: app-user-split
+      id: merge-notify-email
       author: family-tree
       changes:
         - sqlFile:
-            path: changesets/003-app-user.sql
+            path: changesets/008-merge-email.sql
             relativeToChangelogFile: true
             splitStatements: false
-      rollback:
-        - sql: 'drop table if exists app_user cascade'
-  - changeSet:
-      id: restore-approval
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/006-restore-approval.sql
-            relativeToChangelogFile: true
-            splitStatements: false
-  - changeSet:
-      id: user-person
-      author: family-tree
-      changes:
-        - sqlFile:
-            path: changesets/007-user-person.sql
-            relativeToChangelogFile: true
-            splitStatements: false
-      rollback:
-        - sql: 'drop table if exists user_person cascade'
