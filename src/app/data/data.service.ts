@@ -24,6 +24,7 @@ export class DataService {
   readonly myPerson = computed(() => { const id = this.userId(); return id ? (this.data().people.find(p => p.uuid === id) ?? null) : null; });
   readonly approved = computed(() => this.signedIn() && !!this.myPerson()?.approved);
   readonly isAdmin = computed(() => !!this.myPerson()?.is_admin);
+  readonly requested = signal(false);
 
   constructor() {
     const url = environment.supabaseUrl?.trim();
@@ -112,6 +113,12 @@ export class DataService {
     this.mutate(d => { const p = d.people.find(x => x.uuid === uuid); if (p) p.is_admin = value; });
     const { error } = await this.client.from('person').update({ is_admin: value }).eq('uuid', uuid);
     if (error) { this.fail(error); await this.load(); }
+  }
+  async requestAccess(): Promise<void> {
+    if (!this.client) return;
+    this.requested.set(true);
+    const { error } = await this.client.rpc('request_access');
+    if (error) { this.requested.set(false); this.fail(error); }
   }
   clearError(): void { this.lastError.set(null); }
   private fail(msg: unknown): void {

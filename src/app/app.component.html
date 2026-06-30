@@ -80,7 +80,8 @@
         <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2.4" fill="#fff"/><circle cx="12" cy="14.4" r="1.5" fill="#0a63c8"/></svg>
       </div>
       <h1>{{ t('pendingTitle') }}</h1>
-      <p>{{ t('pendingSub') }}</p>
+      <p>{{ svc.requested() ? t('requestSent') : t('pendingSub') }}</p>
+      <button *ngIf="!svc.requested()" class="gbtn cta" (click)="svc.requestAccess()">{{ t('requestAccess') }}</button>
       <button class="gbtn" (click)="signOut()">{{ t('signOut') }}</button>
     </div>
   </div>

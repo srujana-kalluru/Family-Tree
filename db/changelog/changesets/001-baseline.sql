@@ -6,6 +6,9 @@ create table if not exists person (
   gender           text,
   uuid             uuid,
   email            text,
+  approved         boolean not null default false,
+  is_admin         boolean not null default false,
+  last_requested_at timestamptz,
   created_by       uuid        default auth.uid(),
   created_by_email text        default (auth.jwt() ->> 'email'),
   created_by_name  text        default coalesce(auth.jwt() -> 'user_metadata' ->> 'full_name', auth.jwt() -> 'user_metadata' ->> 'name', auth.jwt() ->> 'email'),
@@ -39,25 +42,30 @@ create table if not exists parent_child (
 create table if not exists app_settings (
   id                smallint primary key default 1,
   default_person_id bigint references person(id) on delete set null,
+  owner_email       text,
+  app_url           text,
   updated_by_email  text,
   updated_at        timestamptz default now(),
   constraint app_settings_single_row check (id = 1)
 );
 
-alter table person add column if not exists first_name       text;
-alter table person add column if not exists last_name        text;
-alter table person add column if not exists photo_url        text;
-alter table person add column if not exists gender           text;
-alter table person add column if not exists uuid             uuid;
-alter table person add column if not exists email            text;
-alter table person add column if not exists created_by       uuid        default auth.uid();
-alter table person add column if not exists created_by_email text        default (auth.jwt() ->> 'email');
-alter table person add column if not exists created_by_name  text        default coalesce(auth.jwt() -> 'user_metadata' ->> 'full_name', auth.jwt() -> 'user_metadata' ->> 'name', auth.jwt() ->> 'email');
-alter table person add column if not exists created_at       timestamptz not null default now();
-alter table person add column if not exists updated_by       uuid        default auth.uid();
-alter table person add column if not exists updated_by_email text        default (auth.jwt() ->> 'email');
-alter table person add column if not exists updated_by_name  text        default coalesce(auth.jwt() -> 'user_metadata' ->> 'full_name', auth.jwt() -> 'user_metadata' ->> 'name', auth.jwt() ->> 'email');
-alter table person add column if not exists updated_at       timestamptz not null default now();
+alter table person add column if not exists first_name        text;
+alter table person add column if not exists last_name         text;
+alter table person add column if not exists photo_url         text;
+alter table person add column if not exists gender            text;
+alter table person add column if not exists uuid              uuid;
+alter table person add column if not exists email             text;
+alter table person add column if not exists approved          boolean not null default false;
+alter table person add column if not exists is_admin          boolean not null default false;
+alter table person add column if not exists last_requested_at timestamptz;
+alter table person add column if not exists created_by        uuid        default auth.uid();
+alter table person add column if not exists created_by_email  text        default (auth.jwt() ->> 'email');
+alter table person add column if not exists created_by_name   text        default coalesce(auth.jwt() -> 'user_metadata' ->> 'full_name', auth.jwt() -> 'user_metadata' ->> 'name', auth.jwt() ->> 'email');
+alter table person add column if not exists created_at        timestamptz not null default now();
+alter table person add column if not exists updated_by        uuid        default auth.uid();
+alter table person add column if not exists updated_by_email  text        default (auth.jwt() ->> 'email');
+alter table person add column if not exists updated_by_name   text        default coalesce(auth.jwt() -> 'user_metadata' ->> 'full_name', auth.jwt() -> 'user_metadata' ->> 'name', auth.jwt() ->> 'email');
+alter table person add column if not exists updated_at        timestamptz not null default now();
 
 alter table marriage add column if not exists created_by       uuid        default auth.uid();
 alter table marriage add column if not exists created_by_email text        default (auth.jwt() ->> 'email');
@@ -69,24 +77,162 @@ alter table parent_child add column if not exists created_by_email text        d
 alter table parent_child add column if not exists created_at       timestamptz not null default now();
 alter table parent_child add column if not exists updated_by       uuid        default auth.uid();
 
-create unique index if not exists person_uuid_key on person(uuid);
+alter table app_settings add column if not exists owner_email text;
+alter table app_settings add column if not exists app_url     text;
 
+create unique index if not exists person_uuid_key on person(uuid);
 create index if not exists idx_marriage_p1 on marriage(partner1_id);
 create index if not exists idx_marriage_p2 on marriage(partner2_id);
 create index if not exists idx_pc_parent   on parent_child(parent_id);
 create index if not exists idx_pc_child    on parent_child(child_id);
+
+drop trigger if exists guard_person_flags_trg on person;
+
+insert into app_settings (id, owner_email) values (1, 'srujana.kalluru@gmail.com')
+  on conflict (id) do update set owner_email = excluded.owner_email;
+
+update person set approved = true, is_admin = true
+  where uuid is not null and email = (select owner_email from app_settings where id = 1);
+
+create or replace function public.is_approved() returns boolean
+  language sql security definer set search_path = public stable as
+$fn$ select exists (select 1 from person where uuid = auth.uid() and approved) $fn$;
+
+create or replace function public.is_admin() returns boolean
+  language sql security definer set search_path = public stable as
+$fn$ select exists (select 1 from person where uuid = auth.uid() and is_admin) $fn$;
+
+create or replace function public.bootstrap_owner() returns trigger
+  language plpgsql security definer set search_path = public as
+$fn$
+begin
+  if new.uuid is not null then
+    new.email := auth.jwt() ->> 'email';
+    if new.uuid = auth.uid() and new.email = (select owner_email from app_settings where id = 1) then
+      new.approved := true;
+      new.is_admin := true;
+    else
+      new.approved := false;
+      new.is_admin := false;
+    end if;
+  end if;
+  return new;
+end;
+$fn$;
+
+create or replace function public.guard_person_flags() returns trigger
+  language plpgsql security definer set search_path = public as
+$fn$
+begin
+  if not public.is_admin() then
+    new.approved := old.approved;
+    new.is_admin := old.is_admin;
+  end if;
+  return new;
+end;
+$fn$;
+
+create or replace function public.send_access_email(p_first text, p_last text, p_email text) returns void
+  language plpgsql security definer set search_path = public as
+$fn$
+declare
+  v_key text;
+  v_owner text;
+  v_app text;
+  v_name text;
+begin
+  begin
+    select decrypted_secret into v_key from vault.decrypted_secrets where name = 'resend_api_key';
+    select owner_email, app_url into v_owner, v_app from app_settings where id = 1;
+    if v_key is null or v_owner is null then
+      return;
+    end if;
+    v_name := coalesce(nullif(btrim(coalesce(p_first, '') || ' ' || coalesce(p_last, '')), ''), 'Someone');
+    perform net.http_post(
+      url := 'https://api.resend.com/emails',
+      headers := jsonb_build_object('Authorization', 'Bearer ' || v_key, 'Content-Type', 'application/json'),
+      body := jsonb_build_object(
+        'from', 'Family Tree <onboarding@resend.dev>',
+        'to', v_owner,
+        'subject', v_name || ' is requesting access to your family tree',
+        'html', '<p><strong>' || v_name || '</strong>' ||
+                case when p_email is not null then ' (' || p_email || ')' else '' end ||
+                ' is waiting for your approval. Open ' ||
+                case when v_app is not null then '<a href="' || v_app || '">your family tree</a>' else 'your family tree app' end ||
+                ', tap Members, and Approve.</p>'
+      )
+    );
+  exception when others then
+    null;
+  end;
+end;
+$fn$;
+
+create or replace function public.notify_access_request() returns trigger
+  language plpgsql security definer set search_path = public as
+$fn$
+begin
+  if new.uuid is not null and new.approved is not true then
+    perform public.send_access_email(new.first_name, new.last_name, new.email);
+  end if;
+  return new;
+end;
+$fn$;
+
+create or replace function public.request_access() returns void
+  language plpgsql security definer set search_path = public as
+$fn$
+declare
+  p person;
+begin
+  select * into p from person where uuid = auth.uid();
+  if p.uuid is null or p.approved is true then
+    return;
+  end if;
+  if p.last_requested_at is not null and p.last_requested_at > now() - interval '30 minutes' then
+    return;
+  end if;
+  update person set last_requested_at = now() where uuid = auth.uid();
+  perform public.send_access_email(p.first_name, p.last_name, p.email);
+end;
+$fn$;
+
+grant execute on function public.request_access() to authenticated;
 
 alter table person       enable row level security;
 alter table marriage     enable row level security;
 alter table parent_child enable row level security;
 alter table app_settings enable row level security;
 
-drop policy if exists "read person"        on person;       create policy "read person"        on person       for select using (true);
-drop policy if exists "read marriage"      on marriage;     create policy "read marriage"      on marriage     for select using (true);
-drop policy if exists "read parent_child"  on parent_child; create policy "read parent_child"  on parent_child for select using (true);
-drop policy if exists "read app_settings"  on app_settings; create policy "read app_settings"  on app_settings for select using (true);
+drop policy if exists "read person"        on person;
+drop policy if exists "write person"       on person;
+drop policy if exists "read marriage"      on marriage;
+drop policy if exists "write marriage"     on marriage;
+drop policy if exists "read parent_child"  on parent_child;
+drop policy if exists "write parent_child" on parent_child;
+drop policy if exists "read app_settings"  on app_settings;
+drop policy if exists "write app_settings" on app_settings;
+drop policy if exists person_select on person;
+drop policy if exists person_insert on person;
+drop policy if exists person_update on person;
+drop policy if exists person_delete on person;
+drop policy if exists marriage_rw on marriage;
+drop policy if exists parent_child_rw on parent_child;
+drop policy if exists app_settings_select on app_settings;
+drop policy if exists app_settings_write on app_settings;
 
-drop policy if exists "write person"       on person;       create policy "write person"       on person       for all to authenticated using (true) with check (true);
-drop policy if exists "write marriage"     on marriage;     create policy "write marriage"     on marriage     for all to authenticated using (true) with check (true);
-drop policy if exists "write parent_child" on parent_child; create policy "write parent_child" on parent_child for all to authenticated using (true) with check (true);
-drop policy if exists "write app_settings" on app_settings; create policy "write app_settings" on app_settings for all to authenticated using (true) with check (true);
+create policy person_select on person for select using (public.is_approved() or uuid = auth.uid());
+create policy person_insert on person for insert to authenticated with check (public.is_approved() or uuid = auth.uid());
+create policy person_update on person for update to authenticated using (public.is_approved()) with check (public.is_approved());
+create policy person_delete on person for delete to authenticated using (public.is_approved());
+create policy marriage_rw on marriage for all to authenticated using (public.is_approved()) with check (public.is_approved());
+create policy parent_child_rw on parent_child for all to authenticated using (public.is_approved()) with check (public.is_approved());
+create policy app_settings_select on app_settings for select to authenticated using (public.is_approved());
+create policy app_settings_write on app_settings for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop trigger if exists bootstrap_owner_trg on person;
+create trigger bootstrap_owner_trg before insert on person for each row execute function public.bootstrap_owner();
+drop trigger if exists guard_person_flags_trg on person;
+create trigger guard_person_flags_trg before update on person for each row execute function public.guard_person_flags();
+drop trigger if exists notify_access_request_trg on person;
+create trigger notify_access_request_trg after insert on person for each row execute function public.notify_access_request();
