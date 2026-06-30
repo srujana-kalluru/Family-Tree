@@ -1,7 +1,13 @@
 databaseChangeLog:
   - changeSet:
-      id: schema
+      id: schema-flat
       author: family-tree
+      preConditions:
+        - onFail: MARK_RAN
+          onError: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: person
       changes:
         - sqlFile:
             path: changesets/001-baseline.sql
@@ -31,3 +37,11 @@ databaseChangeLog:
         - sqlFile:
             path: changesets/002-config.sql
             relativeToChangelogFile: true
+  - changeSet:
+      id: email-to-owner
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/008-merge-email.sql
+            relativeToChangelogFile: true
+            splitStatements: false
