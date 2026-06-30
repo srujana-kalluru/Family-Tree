@@ -146,6 +146,15 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   constructor(public svc: DataService) {
     effect(() => {
+      const people = this.svc.data().people;
+      if (!people.length || people.some(p => p.id === this.pov())) return;
+      const ok = (id: number | null) => id != null && people.some(p => p.id === id);
+      let saved: number | null = null;
+      try { const s = localStorage.getItem('ft_pov'); saved = s != null ? +s : null; } catch { saved = null; }
+      const def = this.svc.defaultPovId();
+      this.pov.set(ok(saved) ? saved! : ok(def) ? def! : people[0].id);
+    });
+    effect(() => {
       const g = this.graph(), p = this.pov(), l = this.lang();
       const apply = (v: TreeView) => { this.view.set(v); this.maybeInitialFit(); };
       if (USE_ELK) buildViewElk(g, p, l).then(apply).catch(() => apply(buildView(g, p, l, this.measureName)));
@@ -162,14 +171,6 @@ export class AppComponent implements OnInit, AfterViewInit {
   async ngOnInit(): Promise<void> {
     document.body.classList.toggle('te', this.lang() === 'te');
     await this.svc.load();
-    const people = this.svc.data().people;
-    const valid = (id: number | null) => id != null && people.some(p => p.id === id);
-    let saved: number | null = null;
-    try { const s = localStorage.getItem('ft_pov'); saved = s != null ? +s : null; } catch { saved = null; }
-    const def = this.svc.defaultPovId();
-    if (valid(saved)) this.pov.set(saved!);
-    else if (valid(def)) this.pov.set(def!);
-    else if (people.length && !valid(this.pov())) this.pov.set(people[0].id);
   }
   ngAfterViewInit(): void {
     const el = this.stageRef.nativeElement;
