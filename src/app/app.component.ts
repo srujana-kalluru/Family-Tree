@@ -7,7 +7,6 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from './data/data.service';
 import { TreeGraph } from './core/tree-graph';
 import { buildView, connectionSegment, AV, NODE_W, ROW } from './core/layout';
-import { buildViewElk } from './core/layout-elk';
 import { AppUser, Lang, Person, TreeView, Wire } from './core/models';
 import { dispName } from './core/translit';
 import { tr } from './core/i18n';
@@ -19,7 +18,6 @@ type FormMode =
   | { type: 'edit'; id: number }
   | null;
 
-const USE_ELK = false;
 const EMPTY_VIEW: TreeView = { nodes: [], wires: [], box: null, width: 0, height: 0, pos: {} };
 
 @Component({
@@ -159,9 +157,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
     effect(() => {
       const g = this.graph(), p = this.pov(), l = this.lang();
-      const apply = (v: TreeView) => { this.view.set(v); this.maybeInitialFit(); };
-      if (USE_ELK) buildViewElk(g, p, l).then(apply).catch(() => apply(buildView(g, p, l, this.measureName)));
-      else apply(buildView(g, p, l, this.measureName));
+      this.view.set(buildView(g, p, l, this.measureName));
+      this.maybeInitialFit();
     });
   }
   private fitted = false;
