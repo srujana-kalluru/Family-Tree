@@ -8,6 +8,7 @@ export interface Person {
   gender?: 'male' | 'female' | null;
   approved?: boolean;
   is_admin?: boolean;
+  last_requested_at?: string | null;
   created_by?: string | null;
   updated_by?: string | null;
   created_at?: string | null;

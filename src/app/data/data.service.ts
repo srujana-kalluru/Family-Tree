@@ -104,8 +104,9 @@ export class DataService {
 
   async setApproved(uuid: string, value: boolean): Promise<void> {
     if (!this.client) return;
-    this.mutate(d => { const p = d.people.find(x => x.uuid === uuid); if (p) p.approved = value; });
-    const { error } = await this.client.from('person').update({ approved: value }).eq('uuid', uuid);
+    this.mutate(d => { const p = d.people.find(x => x.uuid === uuid); if (p) { p.approved = value; if (!value) p.last_requested_at = null; } });
+    const patch: Partial<Person> = value ? { approved: true } : { approved: false, last_requested_at: null };
+    const { error } = await this.client.from('person').update(patch).eq('uuid', uuid);
     if (error) { this.fail(error); await this.load(); }
   }
   async setAdmin(uuid: string, value: boolean): Promise<void> {

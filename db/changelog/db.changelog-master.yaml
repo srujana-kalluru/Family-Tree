@@ -9,7 +9,9 @@ databaseChangeLog:
             splitStatements: false
       rollback:
         - sql: 'drop function if exists public.request_access cascade'
+        - sql: 'drop function if exists public.notify_access_granted cascade'
         - sql: 'drop function if exists public.send_access_email cascade'
+        - sql: 'drop function if exists public.send_email cascade'
         - sql: 'drop function if exists public.notify_access_request cascade'
         - sql: 'drop function if exists public.guard_person_flags cascade'
         - sql: 'drop function if exists public.bootstrap_owner cascade'

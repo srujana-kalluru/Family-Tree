@@ -20,20 +20,23 @@ It adds an `AFTER INSERT` trigger on `person` that emails you (via Resend, using
 
    The trigger looks it up by the name `resend_api_key`. The value is encrypted at rest and never lives in the repo.
 
-4. **Owner email + app link** - the migration seeds `owner_email` with `srujana.kalluru@gmail.com` (auto-approved admin). To change it, or to add a clickable link in the email, run:
+4. **Owner email, app link, sender** - the migration seeds `owner_email` with `srujana.kalluru@gmail.com` (auto-approved admin). To change it, add the app link, or set a verified sender:
 
    ```sql
    update app_settings
      set owner_email = 'you@example.com',
-         app_url = 'https://<your-username>.github.io/<repo>'
+         app_url = 'https://<your-username>.github.io/<repo>',
+         from_email = 'Family Tree <noreply@yourdomain.com>'
      where id = 1;
    ```
 
-That's all. Push the migration, finish these four steps once, and every new sign-in emails you.
+That's all. Push the migration, finish these steps once, and new sign-ins email you.
+
+**Heads-up on the "you're approved" email.** When you approve someone, they also get an email. But Resend's free `onboarding@resend.dev` sender only delivers to *your own* address - so the request email (to you) works right away, while the approval email (to other people) needs a verified domain: add one in Resend (Domains -> Add) and set `from_email` above to an address on it. Until then, approval still works; the email to them just won't arrive.
 
 ## How it works
 
 - `person.approved` and `person.is_admin` gate every read and write through RLS, via the `is_approved()` / `is_admin()` security-definer functions.
 - Signing in creates a pending `person` row; a `bootstrap_owner` trigger auto-approves and promotes whoever signs in with `owner_email`.
-- A `notify_access_request` trigger calls Resend over HTTP straight from Postgres via `pg_net` when a pending row is inserted. Any failure is swallowed, so sign-in never breaks.
+- A `notify_access_request` trigger calls Resend over HTTP straight from Postgres via `pg_net` when a pending row is inserted; a `notify_access_granted` trigger emails the person when you approve them. Any failure is swallowed, so sign-in never breaks.
 - Approve / revoke / promote is a flag flip from the Members panel; a revoked user loses access on their next request. A `guard_person_flags` trigger blocks non-admins from changing those flags.

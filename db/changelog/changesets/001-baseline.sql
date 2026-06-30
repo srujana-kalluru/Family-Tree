@@ -44,6 +44,7 @@ create table if not exists app_settings (
   default_person_id bigint references person(id) on delete set null,
   owner_email       text,
   app_url           text,
+  from_email        text,
   updated_by_email  text,
   updated_at        timestamptz default now(),
   constraint app_settings_single_row check (id = 1)
@@ -79,6 +80,7 @@ alter table parent_child add column if not exists updated_by       uuid        d
 
 alter table app_settings add column if not exists owner_email text;
 alter table app_settings add column if not exists app_url     text;
+alter table app_settings add column if not exists from_email  text;
 
 create unique index if not exists person_uuid_key on person(uuid);
 create index if not exists idx_marriage_p1 on marriage(partner1_id);
@@ -87,6 +89,7 @@ create index if not exists idx_pc_parent   on parent_child(parent_id);
 create index if not exists idx_pc_child    on parent_child(child_id);
 
 drop trigger if exists guard_person_flags_trg on person;
+drop trigger if exists notify_access_granted_trg on person;
 
 insert into app_settings (id, owner_email) values (1, 'srujana.kalluru@gmail.com')
   on conflict (id) do update set owner_email = excluded.owner_email;
@@ -132,39 +135,52 @@ begin
 end;
 $fn$;
 
-create or replace function public.send_access_email(p_first text, p_last text, p_email text) returns void
+create or replace function public.send_email(p_to text, p_subject text, p_html text) returns void
   language plpgsql security definer set search_path = public as
 $fn$
 declare
   v_key text;
-  v_owner text;
-  v_app text;
-  v_name text;
+  v_from text;
 begin
   begin
     select decrypted_secret into v_key from vault.decrypted_secrets where name = 'resend_api_key';
-    select owner_email, app_url into v_owner, v_app from app_settings where id = 1;
-    if v_key is null or v_owner is null then
+    if v_key is null or p_to is null then
       return;
     end if;
-    v_name := coalesce(nullif(btrim(coalesce(p_first, '') || ' ' || coalesce(p_last, '')), ''), 'Someone');
+    select coalesce(from_email, 'Family Tree <onboarding@resend.dev>') into v_from from app_settings where id = 1;
     perform net.http_post(
       url := 'https://api.resend.com/emails',
       headers := jsonb_build_object('Authorization', 'Bearer ' || v_key, 'Content-Type', 'application/json'),
-      body := jsonb_build_object(
-        'from', 'Family Tree <onboarding@resend.dev>',
-        'to', v_owner,
-        'subject', v_name || ' is requesting access to your family tree',
-        'html', '<p><strong>' || v_name || '</strong>' ||
-                case when p_email is not null then ' (' || p_email || ')' else '' end ||
-                ' is waiting for your approval. Open ' ||
-                case when v_app is not null then '<a href="' || v_app || '">your family tree</a>' else 'your family tree app' end ||
-                ', tap Members, and Approve.</p>'
-      )
+      body := jsonb_build_object('from', coalesce(v_from, 'Family Tree <onboarding@resend.dev>'), 'to', p_to, 'subject', p_subject, 'html', p_html)
     );
   exception when others then
     null;
   end;
+end;
+$fn$;
+
+create or replace function public.send_access_email(p_first text, p_last text, p_email text) returns void
+  language plpgsql security definer set search_path = public as
+$fn$
+declare
+  v_owner text;
+  v_app text;
+  v_name text;
+begin
+  select owner_email, app_url into v_owner, v_app from app_settings where id = 1;
+  if v_owner is null then
+    return;
+  end if;
+  v_name := coalesce(nullif(btrim(coalesce(p_first, '') || ' ' || coalesce(p_last, '')), ''), 'Someone');
+  perform public.send_email(
+    v_owner,
+    v_name || ' is requesting access to your family tree',
+    '<p><strong>' || v_name || '</strong>' ||
+    case when p_email is not null then ' (' || p_email || ')' else '' end ||
+    ' is waiting for your approval. Open ' ||
+    case when v_app is not null then '<a href="' || v_app || '">your family tree</a>' else 'your family tree app' end ||
+    ', tap Members, and Approve.</p>'
+  );
 end;
 $fn$;
 
@@ -174,6 +190,26 @@ $fn$
 begin
   if new.uuid is not null and new.approved is not true then
     perform public.send_access_email(new.first_name, new.last_name, new.email);
+  end if;
+  return new;
+end;
+$fn$;
+
+create or replace function public.notify_access_granted() returns trigger
+  language plpgsql security definer set search_path = public as
+$fn$
+declare
+  v_app text;
+begin
+  if new.uuid is not null and new.email is not null and new.approved is true and old.approved is distinct from true then
+    select app_url into v_app from app_settings where id = 1;
+    perform public.send_email(
+      new.email,
+      'You are in - family tree access approved',
+      '<p>Good news - your access to the family tree has been approved. Open ' ||
+      case when v_app is not null then '<a href="' || v_app || '">the family tree</a>' else 'the family tree app' end ||
+      ' and sign in.</p>'
+    );
   end if;
   return new;
 end;
@@ -236,3 +272,5 @@ drop trigger if exists guard_person_flags_trg on person;
 create trigger guard_person_flags_trg before update on person for each row execute function public.guard_person_flags();
 drop trigger if exists notify_access_request_trg on person;
 create trigger notify_access_request_trg after insert on person for each row execute function public.notify_access_request();
+drop trigger if exists notify_access_granted_trg on person;
+create trigger notify_access_granted_trg after update on person for each row execute function public.notify_access_granted();
