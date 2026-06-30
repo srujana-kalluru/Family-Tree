@@ -30,3 +30,13 @@ databaseChangeLog:
         - sqlFile:
             path: changesets/002-config.sql
             relativeToChangelogFile: true
+  - changeSet:
+      id: app-user-split
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/003-app-user.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+      rollback:
+        - sql: 'drop table if exists app_user cascade'

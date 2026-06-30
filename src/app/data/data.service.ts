@@ -1,11 +1,12 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
 import { environment } from '../../environments/environment';
-import { TreeData, Person, Marriage, ParentChild } from '../core/models';
+import { TreeData, Person, Marriage, ParentChild, AppUser } from '../core/models';
 
 type Relation = 'spouse' | 'child';
 type Gender = 'male' | 'female' | null;
-const SELECT = 'id,uuid,email,first_name,last_name,photo_url,gender,approved,is_admin,created_by,updated_by,created_at,updated_at';
+const SELECT = 'id,first_name,last_name,photo_url,gender,created_by,updated_by,created_at,updated_at';
+const USER_SELECT = 'id,email,first_name,last_name,approved,is_admin,last_requested_at';
 const EMPTY: TreeData = { people: [], marriages: [], parentChild: [] };
 
 @Injectable({ providedIn: 'root' })
@@ -20,10 +21,11 @@ export class DataService {
   readonly userId = signal<string | null>(null);
   readonly lastError = signal<string | null>(null);
   readonly data = signal<TreeData>({ people: [], marriages: [], parentChild: [] });
+  readonly users = signal<AppUser[]>([]);
   readonly defaultPovId = signal<number | null>(null);
-  readonly myPerson = computed(() => { const id = this.userId(); return id ? (this.data().people.find(p => p.uuid === id) ?? null) : null; });
-  readonly approved = computed(() => this.signedIn() && !!this.myPerson()?.approved);
-  readonly isAdmin = computed(() => !!this.myPerson()?.is_admin);
+  readonly myUser = computed(() => { const id = this.userId(); return id ? (this.users().find(u => u.id === id) ?? null) : null; });
+  readonly approved = computed(() => this.signedIn() && !!this.myUser()?.approved);
+  readonly isAdmin = computed(() => !!this.myUser()?.is_admin);
   readonly requested = signal(false);
 
   constructor() {
@@ -47,14 +49,14 @@ export class DataService {
     this.gLast = (meta['family_name'] as string) ?? (full.split(' ').slice(1).join(' ') || null);
     this.userName.set(full || session?.user?.email || null);
     this.userPhoto.set((meta['avatar_url'] as string) ?? (meta['picture'] as string) ?? null);
-    if (session?.user) this.ensureSelfPerson();
+    if (session?.user) this.ensureSelfUser();
   }
-  private async ensureSelfPerson(): Promise<void> {
-    const uuid = this.userId(); if (!this.client || !uuid) return;
+  private async ensureSelfUser(): Promise<void> {
+    const id = this.userId(); if (!this.client || !id) return;
     try {
-      await this.client.from('person').upsert(
-        { uuid, first_name: this.gFirst || (this.userName() ?? 'Me'), last_name: this.gLast, email: this.userEmail() },
-        { onConflict: 'uuid', ignoreDuplicates: true });
+      await this.client.from('app_user').upsert(
+        { id, first_name: this.gFirst || (this.userName() ?? 'Me'), last_name: this.gLast, email: this.userEmail() },
+        { onConflict: 'id', ignoreDuplicates: true });
       await this.load();
     } catch { }
   }
@@ -72,13 +74,15 @@ export class DataService {
   async load(): Promise<void> {
     if (!this.client) { this.data.set({ ...EMPTY }); this.ready.set(true); return; }
     try {
-      const [pp, mm, pc, s] = await Promise.all([
+      const [pp, mm, pc, s, uu] = await Promise.all([
         this.client.from('person').select(SELECT).order('id'),
         this.client.from('marriage').select('id,partner1_id,partner2_id').order('id'),
         this.client.from('parent_child').select('parent_id,child_id'),
         this.client.from('app_settings').select('default_person_id').eq('id', 1).maybeSingle(),
+        this.client.from('app_user').select(USER_SELECT).order('created_at'),
       ]);
       this.defaultPovId.set(s.error ? null : ((s.data as { default_person_id: number | null } | null)?.default_person_id ?? null));
+      this.users.set(uu.error ? [] : ((uu.data as AppUser[]) ?? []));
       if (pp.error || mm.error || pc.error) throw (pp.error || mm.error || pc.error);
       this.data.set({
         people: (pp.data as Person[]) ?? [],
@@ -100,17 +104,17 @@ export class DataService {
     if (error) { this.defaultPovId.set(prev); this.fail(error); }
   }
 
-  async setApproved(uuid: string, value: boolean): Promise<void> {
+  async setApproved(id: string, value: boolean): Promise<void> {
     if (!this.client) return;
-    this.mutate(d => { const p = d.people.find(x => x.uuid === uuid); if (p) { p.approved = value; if (!value) p.last_requested_at = null; } });
-    const patch: Partial<Person> = value ? { approved: true } : { approved: false, last_requested_at: null };
-    const { error } = await this.client.from('person').update(patch).eq('uuid', uuid);
+    this.users.update(list => list.map(u => u.id === id ? { ...u, approved: value, last_requested_at: value ? u.last_requested_at : null } : u));
+    const patch: Partial<AppUser> = value ? { approved: true } : { approved: false, last_requested_at: null };
+    const { error } = await this.client.from('app_user').update(patch).eq('id', id);
     if (error) { this.fail(error); await this.load(); }
   }
-  async setAdmin(uuid: string, value: boolean): Promise<void> {
+  async setAdmin(id: string, value: boolean): Promise<void> {
     if (!this.client) return;
-    this.mutate(d => { const p = d.people.find(x => x.uuid === uuid); if (p) p.is_admin = value; });
-    const { error } = await this.client.from('person').update({ is_admin: value }).eq('uuid', uuid);
+    this.users.update(list => list.map(u => u.id === id ? { ...u, is_admin: value } : u));
+    const { error } = await this.client.from('app_user').update({ is_admin: value }).eq('id', id);
     if (error) { this.fail(error); await this.load(); }
   }
   async requestAccess(): Promise<void> {

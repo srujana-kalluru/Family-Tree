@@ -1,18 +1,22 @@
 export interface Person {
   id: number;
-  uuid?: string | null;
-  email?: string | null;
   first_name: string;
   last_name?: string | null;
   photo_url?: string | null;
   gender?: 'male' | 'female' | null;
-  approved?: boolean;
-  is_admin?: boolean;
-  last_requested_at?: string | null;
   created_by?: string | null;
   updated_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+}
+export interface AppUser {
+  id: string;
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  approved?: boolean;
+  is_admin?: boolean;
+  last_requested_at?: string | null;
 }
 export interface Marriage { id: number; partner1_id: number; partner2_id: number; created_by?: string | null; updated_by?: string | null; }
 export interface ParentChild { parent_id: number; child_id: number; created_by?: string | null; updated_by?: string | null; }

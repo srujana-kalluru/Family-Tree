@@ -8,7 +8,7 @@ import { DataService } from './data/data.service';
 import { TreeGraph } from './core/tree-graph';
 import { buildView, connectionSegment, AV, NODE_W, ROW } from './core/layout';
 import { buildViewElk } from './core/layout-elk';
-import { Lang, Person, TreeView, Wire } from './core/models';
+import { AppUser, Lang, Person, TreeView, Wire } from './core/models';
 import { dispName } from './core/translit';
 import { tr } from './core/i18n';
 
@@ -82,7 +82,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   addRelation = computed<Relation>(() => { const m = this.formMode(); return m && m.type === 'add' ? m.relation : 'child'; });
   addAnchor = computed(() => { const m = this.formMode(); return m && m.type === 'add' ? m.anchor : -1; });
   povList = computed(() => this.matchSort(this.svc.data().people, this.povQuery().toLowerCase()));
-  users = computed(() => this.svc.data().people.filter(p => !!p.uuid));
+  users = computed(() => this.svc.users());
   linkCandidates = computed(() => {
     const m = this.formMode(); if (!m || m.type !== 'add') return [];
     const g = this.graph(); const exclude = new Set<number>([m.anchor]);
@@ -251,8 +251,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   cropCancel(): void { this.cropSrc.set(null); }
   parentsOf(id: number) { return this.graph().parents(id); }
-  private editorMap = computed(() => { const m: Record<string, Person> = {}; this.svc.data().people.forEach(p => { if (p.uuid) m[p.uuid] = p; }); return m; });
-  editorOf(uuid: string | null | undefined): Person | null { return uuid ? (this.editorMap()[uuid] ?? null) : null; }
+  private editorMap = computed(() => { const m: Record<string, AppUser> = {}; this.svc.users().forEach(u => { m[u.id] = u; }); return m; });
+  editorOf(uuid: string | null | undefined): AppUser | null { return uuid ? (this.editorMap()[uuid] ?? null) : null; }
   spousesOf(id: number) { return this.graph().spouses(id); }
   childrenOf(id: number) { return this.graph().children(id); }
   relWord(rel: Relation): string { return this.t(rel === 'spouse' ? 'spouseLabel' : 'childLabel'); }
