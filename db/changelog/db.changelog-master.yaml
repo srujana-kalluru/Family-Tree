@@ -40,3 +40,11 @@ databaseChangeLog:
             splitStatements: false
       rollback:
         - sql: 'drop table if exists app_user cascade'
+  - changeSet:
+      id: restore-approval
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/006-restore-approval.sql
+            relativeToChangelogFile: true
+            splitStatements: false
