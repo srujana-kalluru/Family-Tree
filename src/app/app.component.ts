@@ -323,7 +323,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const vw = st.clientWidth, vh = st.clientHeight, PAD = 36;
     const px = v.pos[this.pov()]?.x ?? v.width / 2;
     const reach = Math.max(px, v.width - px);
-    const s = Math.max(0.12, Math.min(vw / (2 * reach + PAD * 2), vh / (v.height + PAD * 2), 1.1) * 1.2);
+    const s = Math.max(0.12, Math.min(vw / (2 * reach + PAD * 2), vh / (v.height + PAD * 2), 1.1) * 1.44);
     this.scale.set(s);
     this.panX.set(vw / 2 - px * s);
     this.panY.set((vh - v.height * s) / 2);

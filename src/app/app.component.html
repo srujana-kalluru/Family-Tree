@@ -1,26 +1,14 @@
-<header>
-  <div class="brand">
-    <span class="logo">
-      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-        <circle cx="12" cy="5" r="2.3" fill="#fff"/><circle cx="6" cy="19" r="2.3" fill="#fff"/><circle cx="18" cy="19" r="2.3" fill="#fff"/>
-        <path d="M12 7.3V13 M6 13H18 M6 13V16.7 M18 13V16.7" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </span>
-    <span>{{ t('appTitle') }}</span>
-    <span class="hcount" *ngIf="svc.signedIn() && svc.data().people.length as cnt">{{ cnt }} {{ t('people') }}</span>
-  </div>
+<header *ngIf="svc.signedIn()">
   <div class="spacer"></div>
-  <ng-container *ngIf="svc.signedIn()">
-    <button class="hbtn" (click)="openPov()" *ngIf="svc.approved() && view().nodes.length"><span class="who">{{ t('viewpoint') }}</span> <b>{{ nameOf(pov()) }}</b></button>
-    <button class="hbtn" (click)="openConn()" *ngIf="svc.approved() && view().nodes.length">{{ t('connection') }}</button>
-    <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="addPersonBtn()">+ <span>{{ t('addPerson') }}</span></button>
-    <button class="hbtn" *ngIf="svc.isAdmin()" (click)="adminOpen.set(true)">{{ t('members') }}</button>
-    <button class="hbtn" (click)="signOut()" [title]="svc.userEmail() || ''">{{ t('signOut') }}</button>
-    <div class="seg">
-      <button [class.on]="lang()==='en'" (click)="switchLang('en')">EN</button>
-      <button [class.on]="lang()==='te'" (click)="switchLang('te')">తెలుగు</button>
-    </div>
-  </ng-container>
+  <button class="hbtn" (click)="openPov()" *ngIf="svc.approved() && view().nodes.length"><span class="who">{{ t('viewpoint') }}</span> <b>{{ nameOf(pov()) }}</b></button>
+  <button class="hbtn" (click)="openConn()" *ngIf="svc.approved() && view().nodes.length">{{ t('connection') }}</button>
+  <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="addPersonBtn()">+ <span>{{ t('addPerson') }}</span></button>
+  <button class="hbtn" *ngIf="svc.isAdmin()" (click)="adminOpen.set(true)">{{ t('members') }}</button>
+  <button class="hbtn" (click)="signOut()" [title]="svc.userEmail() || ''">{{ t('signOut') }}</button>
+  <div class="seg">
+    <button [class.on]="lang()==='en'" (click)="switchLang('en')">EN</button>
+    <button [class.on]="lang()==='te'" (click)="switchLang('te')">తెలుగు</button>
+  </div>
 </header>
 
 <div class="stage" #stage (mousedown)="onStageMouseDown($event)"
