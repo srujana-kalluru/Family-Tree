@@ -16,7 +16,6 @@ export interface AppUser {
   last_name?: string | null;
   approved?: boolean;
   is_admin?: boolean;
-  blocked?: boolean;
   last_requested_at?: string | null;
 }
 export interface Marriage { id: number; partner1_id: number; partner2_id: number; created_by?: string | null; updated_by?: string | null; }
