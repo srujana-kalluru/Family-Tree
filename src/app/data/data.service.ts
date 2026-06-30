@@ -117,6 +117,11 @@ export class DataService {
     const { error } = await this.client.from('app_user').update({ is_admin: value }).eq('id', id);
     if (error) { this.fail(error); await this.load(); }
   }
+  async linkUserToPerson(userId: string, personId: number): Promise<void> {
+    if (!this.client) return;
+    const { error } = await this.client.from('user_person').upsert({ user_id: userId, person_id: personId }, { onConflict: 'user_id' });
+    if (error) this.fail(error);
+  }
   async requestAccess(): Promise<void> {
     if (!this.client) return;
     this.requested.set(true);

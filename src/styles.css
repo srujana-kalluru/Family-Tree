@@ -184,6 +184,9 @@ input[type=text]:focus,input[type=password]:focus{outline:none;border-color:var(
 
 .welcome-icon.lock{background:linear-gradient(160deg,#f6ad55,#dd7724)}
 .userlist{display:flex;flex-direction:column;margin-top:4px}
+.pickrow{display:block;width:100%;border:0;border-top:1px solid var(--line);background:transparent;cursor:pointer;text-align:left;padding:11px 4px;font-size:14px;font-weight:600;color:var(--text)}
+.pickrow:first-child{border-top:0}
+.pickrow:hover{background:var(--hover)}
 .urow{display:flex;align-items:center;gap:10px;padding:12px 2px;border-top:1px solid var(--line)}
 .urow:first-child{border-top:0}
 .uinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}

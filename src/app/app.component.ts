@@ -56,6 +56,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   delArmed = signal(false);
   povOpen = signal(false);
   adminOpen = signal(false);
+  linkUserOpen = signal(false);
+  linkedUser = signal<AppUser | null>(null);
   povQuery = signal('');
   connOpen = signal(false);
   connA = signal<number | null>(null);
@@ -339,7 +341,18 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.coParent.set(sp.length === 1 ? sp[0].id : null);
     this.delArmed.set(false); this.formOpen.set(true);
   }
-  openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.fPhoto.set(p?.photo_url ?? null); this.fGender.set(p?.gender ?? null); this.delArmed.set(false); this.formOpen.set(true); }
+  openEdit(id: number): void { this.formMode.set({ type: 'edit', id }); const p = this.byId(id); this.fFirst.set(p?.first_name ?? ''); this.fLast.set(p?.last_name ?? ''); this.fPhoto.set(p?.photo_url ?? null); this.fGender.set(p?.gender ?? null); this.delArmed.set(false); this.linkUserOpen.set(false); this.linkedUser.set(null); this.formOpen.set(true); }
+  useGooglePhoto(): void {
+    this.fPhoto.set(this.svc.userPhoto());
+    const m = this.formMode(); const uid = this.svc.userId();
+    if (m && m.type === 'edit' && uid) this.svc.linkUserToPerson(uid, m.id);
+  }
+  pickLinkUser(userId: string): void {
+    const m = this.formMode(); if (!m || m.type !== 'edit') return;
+    this.svc.linkUserToPerson(userId, m.id);
+    this.linkedUser.set(this.svc.users().find(u => u.id === userId) ?? null);
+    this.linkUserOpen.set(false);
+  }
   closeForm(): void { this.formOpen.set(false); this.formMode.set(null); }
   onScrim(e: MouseEvent, which: 'form' | 'pov' | 'conn'): void {
     if (e.target !== e.currentTarget) return;

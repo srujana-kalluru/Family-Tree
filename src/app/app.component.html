@@ -180,12 +180,24 @@
           <div class="photobtns">
             <button type="button" class="chip up" (click)="photoFile.click()">{{ t('uploadPhoto') }}</button>
             <input #photoFile type="file" accept="image/*" hidden (change)="onPhotoFile($event)" />
-            <button type="button" class="chip" *ngIf="svc.userPhoto()" (click)="fPhoto.set(svc.userPhoto())">{{ t('useGooglePhoto') }}</button>
+            <button type="button" class="chip" *ngIf="svc.userPhoto()" (click)="useGooglePhoto()">{{ t('useGooglePhoto') }}</button>
             <button type="button" class="chip" *ngIf="fPhoto()" (click)="fPhoto.set(null)">{{ t('removePhoto') }}</button>
           </div>
         </div>
       </div>
       </ng-template>
+
+      <ng-container *ngIf="svc.isAdmin()">
+        <label>{{ t('identityLabel') }}</label>
+        <div class="quick">
+          <button type="button" class="chip" (click)="linkUserOpen.set(!linkUserOpen())">{{ t('linkToUser') }}</button>
+          <span class="relchip" *ngIf="linkedUser() as lu">{{ t('linkedTo') }}: {{ lu.first_name }}{{ lu.last_name ? ' ' + lu.last_name : '' }}</span>
+        </div>
+        <div class="userlist" *ngIf="linkUserOpen()">
+          <button type="button" class="pickrow" *ngFor="let u of svc.users()" (click)="pickLinkUser(u.id)">{{ u.first_name }}{{ u.last_name ? ' ' + u.last_name : '' }}</button>
+          <div class="relnote" *ngIf="!svc.users().length">{{ t('noMembers') }}</div>
+        </div>
+      </ng-container>
 
       <label>{{ t('relationships') }}</label>
       <div class="relrow" *ngIf="parentsOf(editId()).length">

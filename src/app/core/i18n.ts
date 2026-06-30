@@ -93,6 +93,9 @@ const M: Record<string, Record<Lang, string>> = {
   removeAdmin: { en: 'Remove admin', te: 'నిర్వాహకుని తీసివేయి' },
   noMembers: { en: 'No one has signed in yet.', te: 'ఇంకా ఎవరూ సైన్ ఇన్ చేయలేదు.' },
   youTag: { en: 'You', te: 'మీరు' },
+  identityLabel: { en: 'Identity', te: 'గుర్తింపు' },
+  linkToUser: { en: 'Link to user', te: 'వాడుకరికి అనుసంధానించు' },
+  linkedTo: { en: 'Linked to', te: 'అనుసంధానించబడింది' },
 };
 
 export function tr(key: string, lang: Lang): string {

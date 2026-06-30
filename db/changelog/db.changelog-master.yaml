@@ -48,3 +48,13 @@ databaseChangeLog:
             path: changesets/006-restore-approval.sql
             relativeToChangelogFile: true
             splitStatements: false
+  - changeSet:
+      id: user-person
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/007-user-person.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+      rollback:
+        - sql: 'drop table if exists user_person cascade'
