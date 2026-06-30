@@ -11,8 +11,8 @@
   </div>
   <div class="spacer"></div>
   <ng-container *ngIf="svc.signedIn()">
-    <button class="hbtn" (click)="openPov()" *ngIf="svc.approved() && view().nodes.length"><span class="who">{{ t('viewpoint') }}</span> <b>{{ nameOf(pov()) }}</b></button>
-    <button class="hbtn" (click)="openConn()" *ngIf="svc.approved() && view().nodes.length">{{ t('connection') }}</button>
+    <button class="hbtn" (click)="openPov()" *ngIf="svc.canView() && view().nodes.length"><span class="who">{{ t('viewpoint') }}</span> <b>{{ nameOf(pov()) }}</b></button>
+    <button class="hbtn" (click)="openConn()" *ngIf="svc.canView() && view().nodes.length">{{ t('connection') }}</button>
     <button class="hbtn primary" *ngIf="svc.canEdit()" (click)="addPersonBtn()">+ <span>{{ t('addPerson') }}</span></button>
     <button class="hbtn" *ngIf="svc.isAdmin()" (click)="adminOpen.set(true)">{{ t('members') }}</button>
     <button class="hbtn" (click)="signOut()" [title]="svc.userEmail() || ''">{{ t('signOut') }}</button>
@@ -25,7 +25,7 @@
 
 <div class="stage" #stage (mousedown)="onStageMouseDown($event)"
      (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd()">
-  <div class="viewport" *ngIf="svc.signedIn() && svc.approved()" [class.animating]="animating()" [style.transform]="transform()">
+  <div class="viewport" *ngIf="svc.signedIn() && svc.canView()" [class.animating]="animating()" [style.transform]="transform()">
     <svg class="wires" [attr.width]="view().width" [attr.height]="view().height">
       <rect *ngFor="let b of genBands()" x="0" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h"
             [attr.fill]="b.shade ? 'rgba(20,28,50,0.03)' : 'transparent'"></rect>
@@ -56,7 +56,7 @@
     </div>
   </div>
 
-  <div class="welcome" *ngIf="svc.ready() && (!svc.signedIn() || (svc.approved() && view().nodes.length === 0))">
+  <div class="welcome" *ngIf="svc.ready() && (!svc.signedIn() || (svc.canView() && view().nodes.length === 0))">
     <div class="welcome-card">
       <div class="welcome-icon">
         <svg viewBox="0 0 24 24" width="38" height="38" aria-hidden="true">
@@ -74,26 +74,25 @@
     </div>
   </div>
 
-  <div class="welcome" *ngIf="svc.ready() && svc.signedIn() && !svc.approved()">
+  <div class="welcome" *ngIf="svc.ready() && svc.signedIn() && !svc.canView()">
     <div class="welcome-card">
       <div class="welcome-icon lock">
         <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2.4" fill="#fff"/><circle cx="12" cy="14.4" r="1.5" fill="#0a63c8"/></svg>
       </div>
-      <h1>{{ t('pendingTitle') }}</h1>
-      <p>{{ svc.requested() ? t('requestSent') : t('pendingSub') }}</p>
-      <button *ngIf="!svc.requested()" class="gbtn cta" (click)="svc.requestAccess()">{{ t('requestAccess') }}</button>
+      <h1>{{ t('removedTitle') }}</h1>
+      <p>{{ t('removedSub') }}</p>
       <button class="gbtn" (click)="signOut()">{{ t('signOut') }}</button>
     </div>
   </div>
 
-  <div class="zoombar" *ngIf="svc.signedIn() && svc.approved() && view().nodes.length">
+  <div class="zoombar" *ngIf="svc.signedIn() && svc.canView() && view().nodes.length">
     <button (click)="zoomBtn(0.83)" title="Zoom out">−</button>
     <button class="fit" (click)="fitView()">{{ t('fit') }}</button>
     <button (click)="zoomBtn(1.2)" title="Zoom in">+</button>
   </div>
 </div>
 
-<div class="caption" *ngIf="svc.signedIn() && svc.approved() && view().nodes.length">
+<div class="caption" *ngIf="svc.signedIn() && svc.canView() && view().nodes.length">
   <span>{{ t('panHint') }}</span>
   <span class="tag-offline" *ngIf="svc.ready() && !svc.online()">{{ t('offline') }}</span>
 </div>
@@ -107,16 +106,31 @@
   <div class="modal" (click)="$event.stopPropagation()">
     <h2>{{ t('accessTitle') }}</h2>
     <p class="sub">{{ t('accessSub') }}</p>
+    <div class="flags">
+      <div class="flagrow">
+        <span class="flaginfo"><b>{{ t('flagSignups') }}</b><small>{{ t('flagSignupsSub') }}</small></span>
+        <button class="toggle" [class.on]="svc.allowSignups()" (click)="svc.setAllowSignups(!svc.allowSignups())">{{ svc.allowSignups() ? t('on') : t('off') }}</button>
+      </div>
+      <div class="flagrow">
+        <span class="flaginfo"><b>{{ t('flagReadonly') }}</b><small>{{ t('flagReadonlySub') }}</small></span>
+        <button class="toggle" [class.on]="svc.readOnly()" (click)="svc.setReadOnly(!svc.readOnly())">{{ svc.readOnly() ? t('on') : t('off') }}</button>
+      </div>
+    </div>
     <div class="userlist">
-      <div class="urow" *ngFor="let u of users()">
+      <div class="urow" *ngFor="let u of users()" [class.blocked]="u.blocked">
         <div class="uinfo">
           <b>{{ u.first_name }}{{ u.last_name ? ' ' + u.last_name : '' }}</b>
           <span class="uemail">{{ u.email }}</span>
         </div>
-        <span class="utag" [class.ok]="u.approved" [class.adm]="u.is_admin">{{ u.id === svc.userId() ? t('youTag') : (u.is_admin ? t('adminTag') : (u.approved ? t('approvedTag') : t('pendingTag'))) }}</span>
-        <button class="chip" *ngIf="!u.approved" (click)="svc.setApproved(u.id, true)">{{ t('approve') }}</button>
-        <button class="chip" *ngIf="u.approved && u.id !== svc.userId()" (click)="svc.setAdmin(u.id, !u.is_admin)">{{ u.is_admin ? t('removeAdmin') : t('makeAdmin') }}</button>
-        <button class="chip danger" *ngIf="u.approved && u.id !== svc.userId()" (click)="svc.setApproved(u.id, false)">{{ t('revoke') }}</button>
+        <span class="utag" [class.ok]="u.approved && !u.blocked" [class.adm]="u.is_admin && !u.blocked" [class.ban]="u.blocked">{{ u.id === svc.userId() ? t('youTag') : (u.blocked ? t('blockedTag') : (u.is_admin ? t('adminTag') : (u.approved ? t('memberTag') : t('viewerTag')))) }}</span>
+        <ng-container *ngIf="u.id !== svc.userId()">
+          <button class="chip" *ngIf="u.blocked" (click)="svc.setBlocked(u.id, false)">{{ t('unblock') }}</button>
+          <ng-container *ngIf="!u.blocked">
+            <button class="chip" (click)="svc.setApproved(u.id, !u.approved)">{{ u.approved ? t('viewOnly') : t('allowEdit') }}</button>
+            <button class="chip" *ngIf="u.approved" (click)="svc.setAdmin(u.id, !u.is_admin)">{{ u.is_admin ? t('removeAdmin') : t('makeAdmin') }}</button>
+            <button class="chip danger" (click)="svc.setBlocked(u.id, true)">{{ t('kick') }}</button>
+          </ng-container>
+        </ng-container>
       </div>
       <div class="relnote" *ngIf="!users().length">{{ t('noMembers') }}</div>
     </div>

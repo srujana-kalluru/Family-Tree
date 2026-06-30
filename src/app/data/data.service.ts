@@ -6,7 +6,7 @@ import { TreeData, Person, Marriage, ParentChild, AppUser } from '../core/models
 type Relation = 'spouse' | 'child';
 type Gender = 'male' | 'female' | null;
 const SELECT = 'id,first_name,last_name,photo_url,gender,created_by,updated_by,created_at,updated_at';
-const USER_SELECT = 'id,email,first_name,last_name,approved,is_admin,last_requested_at';
+const USER_SELECT = 'id,email,first_name,last_name,approved,is_admin,blocked,last_requested_at';
 const EMPTY: TreeData = { people: [], marriages: [], parentChild: [] };
 
 @Injectable({ providedIn: 'root' })
@@ -23,10 +23,12 @@ export class DataService {
   readonly data = signal<TreeData>({ people: [], marriages: [], parentChild: [] });
   readonly users = signal<AppUser[]>([]);
   readonly defaultPovId = signal<number | null>(null);
+  readonly allowSignups = signal(true);
+  readonly readOnly = signal(false);
   readonly myUser = computed(() => { const id = this.userId(); return id ? (this.users().find(u => u.id === id) ?? null) : null; });
-  readonly approved = computed(() => this.signedIn() && !!this.myUser()?.approved);
-  readonly isAdmin = computed(() => !!this.myUser()?.is_admin);
-  readonly requested = signal(false);
+  readonly canView = computed(() => this.signedIn() && !this.myUser()?.blocked);
+  readonly approved = computed(() => this.signedIn() && !!this.myUser()?.approved && !this.myUser()?.blocked);
+  readonly isAdmin = computed(() => !!this.myUser()?.is_admin && !this.myUser()?.blocked);
 
   constructor() {
     const url = environment.supabaseUrl?.trim();
@@ -61,7 +63,7 @@ export class DataService {
     } catch { }
   }
 
-  canEdit(): boolean { return this.approved(); }
+  canEdit(): boolean { return this.isAdmin() || (this.approved() && !this.readOnly()); }
 
   async signInWithGoogle(): Promise<void> {
     if (!this.client) return;
@@ -78,10 +80,13 @@ export class DataService {
         this.client.from('person').select(SELECT).order('id'),
         this.client.from('marriage').select('id,partner1_id,partner2_id').order('id'),
         this.client.from('parent_child').select('parent_id,child_id'),
-        this.client.from('app_settings').select('default_person_id').eq('id', 1).maybeSingle(),
+        this.client.from('app_settings').select('default_person_id,allow_signups,read_only').eq('id', 1).maybeSingle(),
         this.client.from('app_user').select(USER_SELECT).order('created_at'),
       ]);
-      this.defaultPovId.set(s.error ? null : ((s.data as { default_person_id: number | null } | null)?.default_person_id ?? null));
+      const st = s.error ? null : (s.data as { default_person_id: number | null; allow_signups: boolean | null; read_only: boolean | null } | null);
+      this.defaultPovId.set(st?.default_person_id ?? null);
+      this.allowSignups.set(st?.allow_signups ?? true);
+      this.readOnly.set(st?.read_only ?? false);
       this.users.set(uu.error ? [] : ((uu.data as AppUser[]) ?? []));
       if (pp.error || mm.error || pc.error) throw (pp.error || mm.error || pc.error);
       this.data.set({
@@ -117,11 +122,23 @@ export class DataService {
     const { error } = await this.client.from('app_user').update({ is_admin: value }).eq('id', id);
     if (error) { this.fail(error); await this.load(); }
   }
-  async requestAccess(): Promise<void> {
+  async setBlocked(id: string, value: boolean): Promise<void> {
     if (!this.client) return;
-    this.requested.set(true);
-    const { error } = await this.client.rpc('request_access');
-    if (error) { this.requested.set(false); this.fail(error); }
+    this.users.update(list => list.map(u => u.id === id ? { ...u, blocked: value } : u));
+    const { error } = await this.client.from('app_user').update({ blocked: value }).eq('id', id);
+    if (error) { this.fail(error); await this.load(); }
+  }
+  async setAllowSignups(value: boolean): Promise<void> {
+    if (!this.client) return;
+    this.allowSignups.set(value);
+    const { error } = await this.client.from('app_settings').update({ allow_signups: value }).eq('id', 1);
+    if (error) { this.allowSignups.set(!value); this.fail(error); }
+  }
+  async setReadOnly(value: boolean): Promise<void> {
+    if (!this.client) return;
+    this.readOnly.set(value);
+    const { error } = await this.client.from('app_settings').update({ read_only: value }).eq('id', 1);
+    if (error) { this.readOnly.set(!value); this.fail(error); }
   }
   clearError(): void { this.lastError.set(null); }
   private fail(msg: unknown): void {

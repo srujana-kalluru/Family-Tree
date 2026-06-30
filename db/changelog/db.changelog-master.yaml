@@ -40,3 +40,21 @@ databaseChangeLog:
             splitStatements: false
       rollback:
         - sql: 'drop table if exists app_user cascade'
+  - changeSet:
+      id: mailtrap-send
+      author: family-tree
+      runOnChange: true
+      changes:
+        - sqlFile:
+            path: changesets/004-mailtrap.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+  - changeSet:
+      id: open-access
+      author: family-tree
+      runOnChange: true
+      changes:
+        - sqlFile:
+            path: changesets/005-open-access.sql
+            relativeToChangelogFile: true
+            splitStatements: false
