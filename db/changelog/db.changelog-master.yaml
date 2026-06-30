@@ -52,3 +52,15 @@ databaseChangeLog:
         - sql: 'drop policy if exists parent_child_rw on parent_child'
         - sql: 'drop policy if exists app_settings_select on app_settings'
         - sql: 'drop policy if exists app_settings_write on app_settings'
+  - changeSet:
+      id: access-email
+      author: family-tree
+      changes:
+        - sqlFile:
+            path: changesets/005-access-email.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+      rollback:
+        - sql: 'drop trigger if exists notify_access_request_trg on person'
+        - sql: 'drop function if exists public.notify_access_request cascade'
+        - sql: 'alter table app_settings drop column if exists app_url'
