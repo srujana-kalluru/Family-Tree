@@ -2,7 +2,7 @@ import { Lang, PositionedNode, Wire, BoxRect, TreeView, NodeClass } from './mode
 import { TreeGraph } from './tree-graph';
 import { dispName, initialsOf } from './translit';
 
-export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 94, ROW = 220, MARGIN = 110, GUTTER = 26, BOX_PAD = 28;
+export const NODE_W = 110, AV = 78, S_EXT = 78, S_MAIN = 94, S_POV = 110, ROW = 220, MARGIN = 110, GUTTER = 26, BOX_PAD = 28;
 
 function estimateNameWidth(label: string): number { return label.length * 8 + 26; }
 
