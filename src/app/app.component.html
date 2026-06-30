@@ -20,7 +20,7 @@
       <path *ngFor="let w of view().wires" [attr.d]="wirePath(w)" fill="none"
             [attr.stroke]="wireHi(w) ? 'var(--accent)' : (w.main ? 'var(--main)' : 'var(--ext)')"
             [attr.stroke-width]="wireHi(w) ? 4.8 : (w.main ? 2.8 : 2.2)"
-            [attr.stroke-opacity]="highlight()!=null && !wireHi(w) ? 0.12 : 1" stroke-linecap="round"></path>
+            [attr.stroke-opacity]="!wireHi(w) ? 0.12 : 1" stroke-linecap="round"></path>
     </svg>
 
     <div *ngFor="let n of view().nodes; trackBy: trackNode" class="node" role="button" tabindex="0"

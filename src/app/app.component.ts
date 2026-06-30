@@ -102,8 +102,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   connSeg = computed(() => connectionSegment(this.graph(), this.connPaths()));
   branchSet = computed(() => {
     const g = this.graph();
-    const h = this.highlight();
-    if (h == null) return g.immediateFamily(this.pov());
+    const h = this.highlight() ?? this.pov();
     const s = new Set<number>([h, ...g.ancestors(h), ...g.descendants(h)]);
     g.spouses(h).forEach(sp => s.add(sp.id));
     return s;
