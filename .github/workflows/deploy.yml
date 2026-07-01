@@ -32,7 +32,7 @@ jobs:
             printf "export const environment = { production: true, supabaseUrl: '%s', supabaseAnonKey: '%s' };\n" "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > src/environments/environment.ts
             echo "Injected Supabase config from repository secrets."
           else
-            echo "No SUPABASE_URL secret set - building with committed src/environments/environment.ts."
+            echo "No SUPABASE_URL secret set - building with src/environments/environment.ts."
           fi
       - run: npm ci
       - name: Build (base-href = /<repo>/)
