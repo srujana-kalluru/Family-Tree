@@ -23,6 +23,7 @@ export class DataService {
   readonly data = signal<TreeData>({ people: [], marriages: [], parentChild: [] });
   readonly users = signal<AppUser[]>([]);
   readonly defaultPovId = signal<number | null>(null);
+  readonly myPersonId = signal<number | null>(null);
   readonly myUser = computed(() => { const id = this.userId(); return id ? (this.users().find(u => u.id === id) ?? null) : null; });
   readonly approved = computed(() => this.signedIn() && !!this.myUser()?.approved);
   readonly isAdmin = computed(() => !!this.myUser()?.is_admin);
@@ -74,14 +75,17 @@ export class DataService {
   async load(): Promise<void> {
     if (!this.client) { this.data.set({ ...EMPTY }); this.ready.set(true); return; }
     try {
-      const [pp, mm, pc, s, uu] = await Promise.all([
+      const uid = this.userId();
+      const [pp, mm, pc, s, uu, mp] = await Promise.all([
         this.client.from('person').select(SELECT).is('uuid', null).order('id'),
         this.client.from('marriage').select('id,partner1_id,partner2_id').order('id'),
         this.client.from('parent_child').select('parent_id,child_id'),
         this.client.from('app_settings').select('default_person_id').eq('id', 1).maybeSingle(),
         this.client.from('app_user').select(USER_SELECT).order('created_at'),
+        uid ? this.client.from('user_person').select('person_id').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
       this.defaultPovId.set(s.error ? null : ((s.data as { default_person_id: number | null } | null)?.default_person_id ?? null));
+      this.myPersonId.set(mp.error ? null : ((mp.data as { person_id: number } | null)?.person_id ?? null));
       this.users.set(uu.error ? [] : ((uu.data as AppUser[]) ?? []));
       if (pp.error || mm.error || pc.error) throw (pp.error || mm.error || pc.error);
       this.data.set({

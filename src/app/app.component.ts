@@ -139,13 +139,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     effect(() => {
       const people = this.svc.data().people;
       const def = this.svc.defaultPovId();
+      const mine = this.svc.myPersonId();
       if (!people.length) return;
       const ok = (id: number | null) => id != null && people.some(p => p.id === id);
-      if (this.povReady) { if (!ok(this.pov())) this.pov.set(ok(def) ? def! : people[0].id); return; }
+      if (this.povReady) { if (!ok(this.pov())) this.pov.set(ok(mine) ? mine! : ok(def) ? def! : people[0].id); return; }
       this.povReady = true;
       let saved: number | null = null;
       try { const s = localStorage.getItem('ft_pov'); saved = s != null ? +s : null; } catch { saved = null; }
-      this.pov.set(ok(def) ? def! : ok(saved) ? saved! : people[0].id);
+      this.pov.set(ok(mine) ? mine! : ok(def) ? def! : ok(saved) ? saved! : people[0].id);
     });
     effect(() => {
       const g = this.graph(), p = this.pov(), l = this.lang();
