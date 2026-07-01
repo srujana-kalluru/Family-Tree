@@ -16,18 +16,6 @@ export class TreeGraph {
     return this.data.marriages.filter(m => m.partner1_id === id || m.partner2_id === id)
       .map(m => this.byId(m.partner1_id === id ? m.partner2_id : m.partner1_id)).filter((p): p is Person => !!p);
   }
-  siblings(id: number): { person: Person; full: boolean }[] {
-    const mine = new Set(this.data.parentChild.filter(r => r.child_id === id).map(r => r.parent_id));
-    if (!mine.size) return [];
-    const out: { person: Person; full: boolean }[] = [];
-    for (const p of this.data.people) {
-      if (p.id === id) continue;
-      const theirs = this.data.parentChild.filter(r => r.child_id === p.id).map(r => r.parent_id);
-      const shared = theirs.filter(x => mine.has(x)).length;
-      if (shared > 0) out.push({ person: p, full: shared >= 2 });
-    }
-    return out;
-  }
   connectionPaths(aId: number, bId: number): number[][] {
     if (aId === bId) return [[aId]];
     const neighbors = (id: number): number[] => {
@@ -80,6 +68,9 @@ export class TreeGraph {
     anc.forEach(a => down(a));
     [...blood].forEach(id => this.spouses(id).forEach(s => blood.add(s.id)));
     this.spouses(povId).forEach(s => this.parents(s.id).forEach(pp => blood.add(pp.id)));
+    if (!this.spouses(povId).length) {
+      this.parents(povId).forEach(p => this.spouses(p.id).forEach(sp => this.children(sp.id).forEach(c => blood.add(c.id))));
+    }
     return blood;
   }
   immediateFamily(id: number): Set<number> {
@@ -88,8 +79,9 @@ export class TreeGraph {
       this.spouses(id).forEach(s => set.add(s.id));
       this.children(id).forEach(c => set.add(c.id));
     } else {
-      this.parents(id).forEach(p => set.add(p.id));
-      this.siblings(id).forEach(s => set.add(s.person.id));
+      const guardians = new Set<number>();
+      this.parents(id).forEach(p => { guardians.add(p.id); this.spouses(p.id).forEach(sp => guardians.add(sp.id)); });
+      guardians.forEach(g => { set.add(g); this.children(g).forEach(c => set.add(c.id)); });
     }
     return set;
   }
