@@ -35,7 +35,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   private measureName = (label: string): number => {
     const ctx = this.nameCtx;
     if (!ctx) return label.length * 8 + 26;
-    ctx.font = '500 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Telugu", sans-serif';
+    ctx.font = '500 15.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Telugu", sans-serif';
     return ctx.measureText(label).width + 24;
   };
   lang = signal<Lang>('en');

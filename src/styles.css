@@ -57,7 +57,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .avatar{position:relative;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;letter-spacing:.2px;
   box-shadow:0 1px 3px rgba(20,28,50,.14),0 6px 16px rgba(20,28,50,.20);overflow:hidden;border:3px solid #fff}
 .avatar img{width:100%;height:100%;object-fit:cover}
-.name{font-size:13.5px;font-weight:500;color:var(--text);text-align:center;line-height:1.2;white-space:nowrap;letter-spacing:-.01em;
+.name{font-size:15.5px;font-weight:500;color:var(--text);text-align:center;line-height:1.2;white-space:nowrap;letter-spacing:-.01em;
   background:#fff;border:1px solid var(--line2);border-radius:980px;padding:3px 11px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
 .node.main .name{font-weight:600}
 .node.pov .name{font-weight:600;color:var(--text)}
