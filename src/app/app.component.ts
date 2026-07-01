@@ -109,17 +109,10 @@ export class AppComponent implements OnInit, AfterViewInit {
   });
   wireHi(w: Wire): boolean {
     const B = this.branchSet();
-    if (w.kind === 'mar') {
-      const a = w.ids![0], b = w.ids![1];
-      return (B.has(a) || B.has(b)) && ((B.has(a) && B.has(b)) || this.coupleHasBranchChild(a, b, B));
-    }
+    if (w.kind === 'mar') return B.has(w.ids![0]) || B.has(w.ids![1]);
     if (w.kind === 'drop') return (w.kids ?? []).some(k => B.has(k)) && (w.pars ?? []).some(p => B.has(p));
     if (w.kind === 'bus' || w.kind === 'kid') return w.kid != null && B.has(w.kid) && (w.pars ?? []).some(p => B.has(p));
     return false;
-  }
-  private coupleHasBranchChild(a: number, b: number, B: Set<number>): boolean {
-    const g = this.graph();
-    return g.children(a).some(c => B.has(c.id) && g.parents(c.id).some(p => p.id === b));
   }
   wirePath(w: Wire): string {
     if (w.d) return w.d;
